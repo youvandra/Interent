@@ -124,6 +124,14 @@ Notes:
 
 Use the Locus API (requires a `claw_...` API key in the appropriate environment).
 
+## Locus environment (important)
+
+Locus has separate environments (prod/beta). Your `claw_dev_*` key only works on **beta**.
+
+- **Beta API base:** `https://beta-api.paywithlocus.com/api`
+
+Do **NOT** use `https://api.withlocus.com/...` for beta — that host is not the correct Locus API base for Interent’s beta flow.
+
 Minimal flow (agent):
 1) Preflight
 2) Pay
@@ -131,10 +139,10 @@ Minimal flow (agent):
 
 Contoh (Beta):
 ```bash
-curl $LOCUS_API_BASE/checkout/agent/preflight/$SESSION_ID \
+curl https://beta-api.paywithlocus.com/api/checkout/agent/preflight/$SESSION_ID \
   -H "Authorization: Bearer $LOCUS_API_KEY"
 
-curl -X POST $LOCUS_API_BASE/checkout/agent/pay/$SESSION_ID \
+curl -X POST https://beta-api.paywithlocus.com/api/checkout/agent/pay/$SESSION_ID \
   -H "Authorization: Bearer $LOCUS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"payerEmail":"buyer@example.com"}'
