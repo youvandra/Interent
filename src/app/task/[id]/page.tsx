@@ -17,6 +17,8 @@ type Task = {
   title: string;
   description: string;
   priceUsdc: string;
+  provider?: string;
+  endpoint?: string;
 };
 
 export default function TaskPage({ params }: { params: Promise<{ id: string }> }) {
@@ -30,6 +32,10 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
   const [imageUrl, setImageUrl] = useState("");
   const [text, setText] = useState("");
   const [targetLang, setTargetLang] = useState("EN");
+  const [sourceLang, setSourceLang] = useState("");
+  const [url, setUrl] = useState("");
+  const [query, setQuery] = useState("");
+  const [rawJson, setRawJson] = useState("");
 
   const [job, setJob] = useState<{
     jobId: string;
@@ -62,12 +68,40 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
 
   async function createJob() {
     setError(null);
-    const input =
-      taskId === "ocr_mathpix"
-        ? { imageUrl }
-        : taskId === "translate_deepl"
-          ? { text, targetLang }
-          : {};
+    let input: Record<string, unknown> = {};
+
+    try {
+      if (taskId === "ocr_mathpix") {
+        input = { imageUrl };
+      } else if (taskId === "translate_deepl") {
+        input = {
+          text,
+          targetLang,
+          ...(sourceLang ? { sourceLang } : {}),
+        };
+      } else if (taskId === "openai_chat") {
+        input = {
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: text }],
+        };
+      } else if (taskId === "gemini_chat") {
+        input = {
+          model: "gemini-2.5-flash",
+          messages: [{ role: "user", content: text }],
+        };
+      } else if (taskId === "firecrawl_scrape") {
+        input = { url, formats: ["markdown"] };
+      } else if (taskId === "exa_search") {
+        input = { query, numResults: 5 };
+      } else if (rawJson.trim()) {
+        input = JSON.parse(rawJson);
+      } else {
+        input = {};
+      }
+    } catch {
+      setError("Input JSON tidak valid");
+      return;
+    }
 
     const resp = await fetch("/api/jobs/create", {
       method: "POST",
@@ -99,12 +133,16 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
     window.localStorage.setItem(`interent_job_token_${json.jobId}`, json.jobToken);
   }
 
-  const canSubmit =
-    taskId === "ocr_mathpix"
-      ? !!imageUrl.trim()
-      : taskId === "translate_deepl"
-        ? !!text.trim() && !!targetLang.trim()
-        : true;
+  const canSubmit = (() => {
+    if (taskId === "ocr_mathpix") return !!imageUrl.trim();
+    if (taskId === "translate_deepl") return !!text.trim() && !!targetLang.trim();
+    if (taskId === "openai_chat" || taskId === "gemini_chat") return !!text.trim();
+    if (taskId === "firecrawl_scrape") return !!url.trim();
+    if (taskId === "exa_search") return !!query.trim();
+
+    // Task lain: user isi params JSON (kalau kosong, kita allow tapi kemungkinan gagal di wrapped API)
+    return !!rawJson.trim();
+  })();
 
   return (
     <div className="grid gap-6 lg:grid-cols-12">
@@ -178,9 +216,81 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
                       onChange={(e) => setTargetLang(e.target.value.toUpperCase())}
                     />
                   </div>
+                  <div>
+                    <div className="text-sm font-medium">Source (optional)</div>
+                    <Input
+                      placeholder="Auto"
+                      value={sourceLang}
+                      onChange={(e) => setSourceLang(e.target.value.toUpperCase())}
+                    />
+                  </div>
                 </div>
               </div>
             )}
+
+            {(taskId === "openai_chat" || taskId === "gemini_chat") && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Prompt</div>
+                <Textarea
+                  rows={6}
+                  placeholder="Tulis prompt untuk chat…"
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                />
+                <div className="text-xs text-[--color-muted]">
+                  Default model dipilih otomatis (OpenAI: gpt-4o-mini, Gemini: gemini-2.5-flash).
+                </div>
+              </div>
+            )}
+
+            {taskId === "firecrawl_scrape" && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium">URL</div>
+                <Input
+                  placeholder="https://example.com"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                />
+                <div className="text-xs text-[--color-muted]">
+                  Akan return output markdown (formats: [\"markdown\"]).
+                </div>
+              </div>
+            )}
+
+            {taskId === "exa_search" && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Query</div>
+                <Input
+                  placeholder="mis. best OCR API pricing"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+                <div className="text-xs text-[--color-muted]">Default numResults = 5.</div>
+              </div>
+            )}
+
+            {task &&
+              ![
+                "ocr_mathpix",
+                "translate_deepl",
+                "openai_chat",
+                "gemini_chat",
+                "firecrawl_scrape",
+                "exa_search",
+              ].includes(taskId) && (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Wrapped params (JSON)</div>
+                  <Textarea
+                    rows={8}
+                    placeholder={`{\n  \"...\": \"...\"\n}`}
+                    value={rawJson}
+                    onChange={(e) => setRawJson(e.target.value)}
+                  />
+                  <div className="text-xs text-[--color-muted]">
+                    Endpoint: <span className="font-mono">{task.provider}/{task.endpoint}</span>
+                  </div>
+                </div>
+              )}
 
             {!job && (
               <Button disabled={!canSubmit} onClick={createJob} className="w-full">
