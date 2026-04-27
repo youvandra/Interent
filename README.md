@@ -129,6 +129,16 @@ Use **Test Pay** on `/input` to create a mock job:
 
 The `/provider` page shows whatever is in `public.tasks`.
 
+### Token pricing in DB ($0.10/M)
+
+This repo interprets `public.tasks.price_usdc` as **$ per 1M tokens** (e.g. `0.10` means `$0.10/M`).
+
+If you already created your Supabase tables, run the migration in:
+
+- `supabase/migrations/20260428_000001_token_pricing_0_10_per_million.sql`
+
+in the Supabase SQL Editor.
+
 To import the full Wrapped API catalog into `tasks`, call the admin sync endpoint:
 
 1) Set env:
@@ -140,7 +150,7 @@ To import the full Wrapped API catalog into `tasks`, call the admin sync endpoin
 curl -X POST https://<your-domain>/api/admin/sync-tools \
   -H "Content-Type: application/json" \
   -H "x-admin-secret: <ADMIN_SECRET>" \
-  -d '{"priceUsdc": 0.01}'
+  -d '{"priceUsdc": 0.10}'
 ```
 
 Or sync one provider:
@@ -149,7 +159,7 @@ Or sync one provider:
 curl -X POST https://<your-domain>/api/admin/sync-tools \
   -H "Content-Type: application/json" \
   -H "x-admin-secret: <ADMIN_SECRET>" \
-  -d '{"provider":"openai","priceUsdc":0.01}'
+  -d '{"provider":"openai","priceUsdc":0.10}'
 ```
 
 ---

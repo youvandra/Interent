@@ -42,7 +42,7 @@ export default async function ProviderPage() {
             <CardTitle className="flex items-center justify-between">
               <span>{t.title}</span>
               <span className="border border-[--color-border-strong] bg-[--color-primary-soft] px-2 py-1 text-xs font-semibold text-[--color-primary]">
-                {Number(t.price_usdc).toFixed(2)} USDC
+                ${Number(t.price_usdc).toFixed(2)}/1M
               </span>
             </CardTitle>
             <CardDescription>{t.description}</CardDescription>
@@ -62,4 +62,3 @@ export default async function ProviderPage() {
     </div>
   );
 }
-

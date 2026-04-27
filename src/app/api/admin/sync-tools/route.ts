@@ -92,7 +92,8 @@ export async function POST(req: Request) {
       String(p).trim(),
     );
 
-  const defaultPrice = typeof priceUsdc === "number" && priceUsdc > 0 ? priceUsdc : 0.01;
+  // Token pricing default: $0.10 / 1M tokens
+  const defaultPrice = typeof priceUsdc === "number" && priceUsdc > 0 ? priceUsdc : 0.1;
 
   const sb = supabaseServer();
   const locusBase = getLocusApiBase();

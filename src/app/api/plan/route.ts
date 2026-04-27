@@ -19,6 +19,41 @@ type OutputOption = {
   defaultSelected?: boolean;
 };
 
+// Token pricing: price_usdc on `tasks` is interpreted as "$ per 1M tokens".
+// (Example: 0.10 means $0.10 / 1M tokens.)
+const DEFAULT_PRICE_PER_1M_TOKENS_USDC = 0.1;
+
+function estimateTokensFromText(s: string) {
+  // very rough heuristic: ~4 chars per token
+  const chars = (s || "").length;
+  return Math.max(1, Math.ceil(chars / 4));
+}
+
+function estimateStepTokens(opts: {
+  endpoint: string;
+  prompt: string;
+  prevTextTokens: number;
+}) {
+  const endpoint = (opts.endpoint || "").toLowerCase();
+  const promptTokens = estimateTokensFromText(opts.prompt);
+  const inputTokens = Math.max(opts.prevTextTokens, promptTokens);
+
+  // Heuristic output sizes by endpoint (tune later).
+  let outputTokens = 0;
+  if (endpoint === "scrape") outputTokens = 2000;
+  else if (endpoint === "extract") outputTokens = 1500;
+  else if (endpoint === "search") outputTokens = 600;
+  else if (endpoint === "translate") outputTokens = inputTokens;
+  else if (endpoint === "chat") outputTokens = 800;
+  else if (endpoint === "image-generate") outputTokens = 50;
+  else if (endpoint === "tts") outputTokens = 20;
+  else outputTokens = 300;
+
+  const totalTokens = inputTokens + outputTokens;
+  const nextTextTokens = outputTokens > 0 ? outputTokens : inputTokens;
+  return { promptTokens, inputTokens, outputTokens, totalTokens, nextTextTokens };
+}
+
 function inferSupportedTaskId(label: string, userText: string) {
   const l = (label || "").toLowerCase();
   const t = (userText || "").toLowerCase();
@@ -242,7 +277,20 @@ export async function POST(req: Request) {
     (supported ?? []).map((t: any) => [`${t.provider}/${t.endpoint}`.toLowerCase(), t]),
   );
 
-  const normalizedSteps = (steps ?? []).map((s) => {
+  // Normalize steps, detect missing, and estimate tokens + price sequentially.
+  const normalizedSteps: Array<{
+    taskId: string | null;
+    tool: string | null;
+    label: string;
+    missing: boolean;
+    tokenEstimate: { input: number; output: number; total: number };
+    priceUsdc: string;
+  }> = [];
+
+  // token context (what the next step will likely receive as text)
+  let prevTextTokens = estimateTokensFromText(text);
+
+  for (const s of steps ?? []) {
     const tool = (s.tool || "").toLowerCase();
     const taskIdFromTool = tool ? byTool.get(tool)?.id : null;
     let taskId = s.taskId || taskIdFromTool || null;
@@ -258,19 +306,27 @@ export async function POST(req: Request) {
     }
 
     const missing = Boolean(s.missing) || !task;
-    const price = task ? Number(task.price_usdc) : 0;
-    // If supported, always use canonical label from DB (prevents generic labels in UI).
     const label = task ? String(task.title) : s.label || (tool ? tool : "Unknown tool");
+    const endpoint = (task?.endpoint ?? tool.split("/")[1] ?? "").toString();
 
-    return {
+    const tok = estimateStepTokens({ endpoint, prompt: text, prevTextTokens });
+    prevTextTokens = tok.nextTextTokens;
+
+    const pricePer1M = task ? Number(task.price_usdc) : DEFAULT_PRICE_PER_1M_TOKENS_USDC;
+    // Use micro-USDC integer math (1e6). If pricePer1M=$0.10:
+    // microUSDC = round(tokens * 0.10)
+    const stepMicro = missing ? 0 : Math.round(tok.totalTokens * pricePer1M);
+    const priceUsdc = (stepMicro / 1_000_000).toFixed(6);
+
+    normalizedSteps.push({
       taskId: task?.id ?? null,
       tool: tool || (task ? `${task.provider}/${task.endpoint}` : null),
       label,
       missing,
-      // keep precision for transparent totals (USDC has 6 decimals)
-      priceUsdc: price.toFixed(6),
-    };
-  });
+      tokenEstimate: { input: tok.inputTokens, output: tok.outputTokens, total: tok.totalTokens },
+      priceUsdc,
+    });
+  }
 
   // Use micro-USDC integer math to avoid floating drift.
   const SCALE = 1_000_000;
@@ -289,6 +345,7 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     steps: normalizedSteps,
+    pricingModel: { defaultPricePer1MTokensUsdc: DEFAULT_PRICE_PER_1M_TOKENS_USDC },
     subtotalToolsUsdc: fromMicro(subtotalMicro),
     serviceFeeUsdc: fromMicro(serviceFeeMicro),
     serviceFeeRate: SERVICE_FEE_RATE,

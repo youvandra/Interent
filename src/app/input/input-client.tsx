@@ -16,6 +16,7 @@ type PlannedStep = {
   tool?: string | null;
   missing?: boolean;
   priceUsdc: string;
+  tokenEstimate?: { input: number; output: number; total: number };
 };
 
 type OutputOption = {
@@ -323,7 +324,9 @@ export function InputClient() {
             tool: `${opt.provider}/${opt.endpoint}`,
             label: opt.title,
             missing: false,
-            priceUsdc: opt.priceUsdc,
+            // Pricing is token-estimated; keep existing price/token estimate for this step.
+            priceUsdc: s.priceUsdc,
+            tokenEstimate: s.tokenEstimate,
           }
         : s,
     );
