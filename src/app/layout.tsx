@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
+import { Logo } from "@/components/site/logo";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,9 +35,8 @@ export default function RootLayout({
         <header className="sticky top-0 z-10 w-full border-b border-[--color-border] bg-white/90 backdrop-blur">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
             {/* Brand */}
-            <a href="/" className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-              <span className="inline-block h-2.5 w-2.5 bg-[--color-primary]" />
-              <span>Interent</span>
+            <a href="/" className="text-[--color-text] hover:text-[--color-text]">
+              <Logo />
             </a>
 
             {/* Right actions */}
