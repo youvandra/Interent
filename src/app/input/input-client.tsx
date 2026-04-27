@@ -159,8 +159,17 @@ export function InputClient() {
               <div className="space-y-3">
                 <div className="border border-[--color-border] bg-white p-4 text-sm">
                   <div className="font-semibold">Suggested flow</div>
-                  <div className="mt-2 text-[--color-muted]">
-                    {plan.steps.map((s) => s.label).join(" → ")}
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[--color-muted]">
+                    {plan.steps.map((s, idx) => (
+                      <div key={s.taskId} className="flex items-center gap-2">
+                        <span className="border border-[--color-border-strong] bg-white px-2 py-1 text-xs font-semibold text-[--color-text]">
+                          {s.label}
+                        </span>
+                        {idx < plan.steps.length - 1 ? (
+                          <span className="text-xs text-[--color-muted]">→</span>
+                        ) : null}
+                      </div>
+                    ))}
                   </div>
                   {plan.notes ? (
                     <div className="mt-2 text-xs text-[--color-muted]">{plan.notes}</div>
@@ -216,4 +225,3 @@ export function InputClient() {
     </div>
   );
 }
-
