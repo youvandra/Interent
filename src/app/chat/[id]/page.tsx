@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getOrCreateBuyerId } from "@/lib/buyer";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { ArrowRight, Lock } from "lucide-react";
 
 export default function ChatPage({ params }: { params: { id: string } }) {
   const packId = params.id;
@@ -40,74 +45,114 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
   if (hasAccess === null) {
     return (
-      <div className="rounded-xl border bg-white p-6 text-sm">
-        Cek akses…
-      </div>
+      <Card className="p-6">
+        <CardTitle>Cek akses…</CardTitle>
+        <CardDescription className="mt-2">
+          Nunggu hasil entitlement dari webhook.
+        </CardDescription>
+      </Card>
     );
   }
 
   if (!hasAccess) {
     return (
-      <div className="rounded-xl border bg-white p-6">
-        <div className="text-lg font-semibold">Akses belum kebuka</div>
-        <div className="mt-2 text-sm text-zinc-600">
-          Lo belum punya entitlement untuk pack ini (atau webhook belum masuk).
-        </div>
-        <div className="mt-4 flex gap-3">
-          <Link
-            href={`/checkout/${packId}`}
-            className="rounded-lg bg-black px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-          >
-            Checkout
-          </Link>
-          <Link href={`/pack/${packId}`} className="rounded-lg border px-3 py-2 text-sm">
-            Detail pack
-          </Link>
-        </div>
-        <div className="mt-4 text-xs text-zinc-500">
-          Buyer ID (demo): <span className="font-mono">{buyerId}</span>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-[--color-primary]" />
+                Akses belum kebuka
+              </CardTitle>
+              <CardDescription>
+                Lo belum punya entitlement untuk pack ini (atau webhook belum masuk).
+              </CardDescription>
+            </div>
+            <Badge>{packId}</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Link href={`/checkout/${packId}`}>
+              <Button className="w-full">
+                Checkout <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href={`/pack/${packId}`}>
+              <Button variant="secondary" className="w-full">
+                Detail pack
+              </Button>
+            </Link>
+          </div>
+          <div className="rounded-xl border border-[--color-border] bg-[--color-surface] p-3 text-xs">
+            <div className="text-[--color-muted]">Buyer ID (demo)</div>
+            <div className="mt-1 break-all font-mono text-[--color-text]">{buyerId}</div>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-xl font-semibold">Chat</div>
-          <div className="text-sm text-zinc-600">Pack: {packId}</div>
-        </div>
-        <Link href="/" className="text-sm underline">
-          Home
-        </Link>
+    <div className="grid gap-6 lg:grid-cols-12">
+      <div className="lg:col-span-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Session</CardTitle>
+            <CardDescription>Demo persona chat.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-[--color-muted]">
+            <div className="flex items-center justify-between">
+              <span>Pack</span>
+              <Badge>{packId}</Badge>
+            </div>
+            <div className="rounded-xl border border-[--color-border] bg-[--color-surface] p-3 text-xs">
+              <div className="text-[--color-muted]">Buyer ID</div>
+              <div className="mt-1 break-all font-mono text-[--color-text]">{buyerId}</div>
+            </div>
+            <Link href="/">
+              <Button variant="secondary" className="w-full">
+                Back to marketplace
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="rounded-xl border bg-white p-4">
-        <div className="text-sm font-medium">Tanya sesuatu</div>
-        <textarea
-          className="mt-2 w-full rounded-lg border p-3 text-sm"
-          rows={4}
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Misal: Gimana strategi growth untuk marketplace agent?"
-        />
-        <button
-          className="mt-3 rounded-lg bg-black px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
-          disabled={!question.trim()}
-          onClick={ask}
-        >
-          Ask
-        </button>
+      <div className="lg:col-span-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Chat</CardTitle>
+            <CardDescription>
+              Saat ini jawaban masih dummy (buat fokus ke checkout + gating). Nanti bisa
+              di-upgrade jadi RAG + LLM.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm font-medium">Tanya sesuatu</div>
+            <div className="mt-2">
+              <Textarea
+                rows={4}
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                placeholder="Misal: Gimana strategi growth untuk marketplace agent?"
+              />
+            </div>
+            <div className="mt-3 flex items-center justify-end">
+              <Button disabled={!question.trim()} onClick={ask}>
+                Ask
+              </Button>
+            </div>
 
-        {answer && (
-          <div className="mt-4 rounded-lg bg-zinc-50 p-3 text-sm">
-            <div className="font-medium">Jawaban</div>
-            <div className="mt-1 whitespace-pre-wrap text-zinc-700">{answer}</div>
-          </div>
-        )}
+            {answer && (
+              <div className="mt-4 rounded-xl border border-[--color-border] bg-[--color-surface] p-4 text-sm">
+                <div className="font-medium text-[--color-text]">Jawaban</div>
+                <div className="mt-2 whitespace-pre-wrap text-[--color-muted]">{answer}</div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
 }
-
