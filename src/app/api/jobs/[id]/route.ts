@@ -11,7 +11,11 @@ export async function GET(
 
   const { id } = await params;
   const sb = supabaseServer();
-  const { data: job, error } = await sb.from("jobs").select("*").eq("id", id).maybeSingle();
+  const { data: job, error } = await sb
+    .from("jobs")
+    .select("id, task_id, status, created_at, paid_at, completed_at, error_message, job_token_hash, input_json, result_json")
+    .eq("id", id)
+    .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 });
 
@@ -27,5 +31,7 @@ export async function GET(
     paidAt: job.paid_at,
     completedAt: job.completed_at,
     error: job.error_message,
+    inputJson: job.input_json,
+    resultJson: job.result_json,
   });
 }

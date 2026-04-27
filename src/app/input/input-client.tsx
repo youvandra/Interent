@@ -105,6 +105,28 @@ export function InputClient() {
   } | null>(null);
   const [testPaying, setTestPaying] = useState(false);
 
+  function saveJobContext(jobId: string) {
+    if (!plan) return;
+    try {
+      const payload = {
+        prompt,
+        steps: plan.steps,
+        expectedOutputs: plan.expectedOutputs ?? [],
+        selectedOutputs,
+        pricing: {
+          subtotalToolsUsdc: plan.subtotalToolsUsdc,
+          serviceFeeUsdc: plan.serviceFeeUsdc,
+          serviceFeeRate: plan.serviceFeeRate,
+          totalPriceUsdc: plan.totalPriceUsdc,
+        },
+        savedAt: new Date().toISOString(),
+      };
+      window.localStorage.setItem(`interent_job_context_${jobId}`, JSON.stringify(payload));
+    } catch {
+      // ignore
+    }
+  }
+
   async function generatePlan(text: string) {
     setError(null);
     setPlanning(true);
@@ -193,6 +215,7 @@ export function InputClient() {
       });
 
       window.localStorage.setItem(`interent_job_token_${json.jobId}`, json.jobToken);
+      saveJobContext(json.jobId);
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
@@ -230,6 +253,7 @@ export function InputClient() {
       if (!resp.ok) throw new Error(json?.error || "Failed to create test job");
 
       window.localStorage.setItem(`interent_job_token_${json.jobId}`, json.jobToken);
+      saveJobContext(json.jobId);
       window.location.href = `/jobs/${json.jobId}`;
     } catch (e: any) {
       setError(String(e?.message || e));

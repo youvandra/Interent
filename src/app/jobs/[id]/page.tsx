@@ -13,11 +13,14 @@ type JobStatus = {
   taskId: string;
   status: string;
   error?: string | null;
+  inputJson?: any;
+  resultJson?: any;
 };
 
 export default function JobPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: jobId } = React.use(params);
   const storageKey = useMemo(() => `interent_job_token_${jobId}`, [jobId]);
+  const contextKey = useMemo(() => `interent_job_context_${jobId}`, [jobId]);
 
   const [jobToken, setJobToken] = useState<string>("");
   const [status, setStatus] = useState<JobStatus | null>(null);
@@ -26,11 +29,40 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
   const [manualLoading, setManualLoading] = useState(false);
   const [polling, setPolling] = useState(false);
   const pollRef = useRef<number | null>(null);
+  const [jobContext, setJobContext] = useState<any | null>(null);
 
   useEffect(() => {
     const fromStorage = window.localStorage.getItem(storageKey);
     if (fromStorage) setJobToken(fromStorage);
   }, [storageKey]);
+
+  useEffect(() => {
+    const raw = window.localStorage.getItem(contextKey);
+    if (!raw) return;
+    try {
+      setJobContext(JSON.parse(raw));
+    } catch {
+      // ignore
+    }
+  }, [contextKey]);
+
+  function stepStatusForIndex(i: number): "DONE" | "RUNNING" | "PENDING" | "FAILED" {
+    const s = status?.status;
+    const progressSteps = status?.resultJson?.progress?.steps as any[] | undefined;
+    if (Array.isArray(progressSteps) && progressSteps[i]?.status) return progressSteps[i].status;
+    if (s === "DONE") return "DONE";
+    if (s === "FAILED") return "FAILED";
+    if (s === "RUNNING") return i === 0 ? "RUNNING" : "PENDING";
+    return "PENDING";
+  }
+
+  function stepClass(st: string) {
+    if (st === "DONE")
+      return "border-[--color-border-strong] bg-[--color-primary-soft] text-[--color-primary]";
+    if (st === "RUNNING") return "border-black bg-black text-white";
+    if (st === "FAILED") return "border-red-400 bg-red-50 text-red-700";
+    return "border-[--color-border] bg-white text-[--color-text] opacity-50";
+  }
 
   async function refresh({ silent = false }: { silent?: boolean } = {}) {
     setError(null);
@@ -43,6 +75,11 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
       const json = await resp.json().catch(() => null);
       if (!resp.ok) throw new Error(json?.error || "Failed to fetch job status");
       setStatus(json);
+
+      // Fallback: if no local context, use server-side inputJson (when available).
+      if (!jobContext && json?.inputJson) {
+        setJobContext({ prompt: json.inputJson.prompt, steps: json.inputJson.steps, selectedOutputs: json.inputJson.expectedOutputs });
+      }
 
       if (json.status === "DONE") {
         const r = await fetch(`/api/jobs/${jobId}/result`, {
@@ -188,6 +225,61 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
                 {status.error}
               </div>
             ) : null}
+
+            {/* Input + toolchain */}
+            {(jobContext?.prompt || jobContext?.steps?.length) && (
+              <div className="border border-[--color-border] bg-white p-4">
+                {jobContext?.prompt ? (
+                  <div>
+                    <div className="text-xs font-semibold tracking-widest text-[--color-muted]">
+                      INPUT
+                    </div>
+                    <div className="mt-2 text-sm text-[--color-text]">{jobContext.prompt}</div>
+                  </div>
+                ) : null}
+
+                {Array.isArray(jobContext?.selectedOutputs) && jobContext.selectedOutputs.length ? (
+                  <div className="mt-3">
+                    <div className="text-xs font-semibold tracking-widest text-[--color-muted]">
+                      EXPECTED OUTPUT
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {jobContext.selectedOutputs.map((o: string) => (
+                        <span
+                          key={o}
+                          className="border border-[--color-border] bg-white px-2 py-1 text-xs text-[--color-text]"
+                        >
+                          {o}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {Array.isArray(jobContext?.steps) && jobContext.steps.length ? (
+                  <div className="mt-4">
+                    <div className="text-xs font-semibold tracking-widest text-[--color-muted]">
+                      TOOLCHAIN
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {jobContext.steps.map((s: any, idx: number) => {
+                        const st = stepStatusForIndex(idx);
+                        return (
+                          <div key={`${s.taskId ?? s.label ?? "step"}-${idx}`} className="flex items-center gap-2">
+                            <span className={`border px-2 py-1 text-xs font-semibold ${stepClass(st)}`}>
+                              {s.label ?? s.taskId ?? `Step ${idx + 1}`}
+                            </span>
+                            {idx < jobContext.steps.length - 1 ? (
+                              <span className="text-xs text-[--color-muted]">→</span>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
 
             {result && (
               <div className="rounded-xl border border-[--color-border] bg-white p-4">
