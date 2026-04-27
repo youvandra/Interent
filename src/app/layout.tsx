@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Button } from "@/components/ui/button";
+import { Menu } from "lucide-react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,25 +32,75 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-white text-[--color-text]">
         <header className="sticky top-0 z-10 w-full border-b border-[--color-border] bg-white/90 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-            <a href="/" className="text-sm font-semibold tracking-tight">
-              Interent
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
+            {/* Brand */}
+            <a href="/" className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+              <span className="inline-block h-2.5 w-2.5 bg-[--color-primary]" />
+              <span>Interent</span>
             </a>
 
-            <nav className="flex items-center gap-2 text-sm">
+            {/* Desktop nav */}
+            <nav className="hidden items-center gap-1 text-sm sm:flex">
               <a
-                className="rounded-lg px-3 py-2 text-[--color-muted] hover:bg-[--color-surface] hover:text-[--color-text]"
+                className="px-3 py-2 text-[--color-muted] hover:text-[--color-text]"
                 href="/marketplace"
               >
                 Marketplace
               </a>
               <a
-                className="rounded-lg px-3 py-2 text-[--color-muted] hover:bg-[--color-surface] hover:text-[--color-text]"
+                className="px-3 py-2 text-[--color-muted] hover:text-[--color-text]"
                 href="/skill"
               >
                 SKILL.md
               </a>
+              <a
+                className="px-3 py-2 text-[--color-muted] hover:text-[--color-text]"
+                href="https://docs.paywithlocus.com/wrapped-apis"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Wrapped APIs
+              </a>
             </nav>
+
+            {/* Right actions */}
+            <div className="hidden items-center gap-2 sm:flex">
+              <a href="/marketplace">
+                <Button size="sm">Launch app</Button>
+              </a>
+            </div>
+
+            {/* Mobile menu (no JS) */}
+            <details className="relative sm:hidden">
+              <summary className="list-none">
+                <Button variant="secondary" size="sm" aria-label="Open menu">
+                  <Menu className="h-4 w-4" />
+                </Button>
+              </summary>
+              <div className="absolute right-0 mt-2 w-56 border border-[--color-border] bg-white p-2 shadow-[0_12px_48px_rgba(16,24,40,0.12)]">
+                <a className="block px-3 py-2 text-sm hover:bg-[--color-surface]" href="/marketplace">
+                  Marketplace
+                </a>
+                <a className="block px-3 py-2 text-sm hover:bg-[--color-surface]" href="/skill">
+                  SKILL.md
+                </a>
+                <a
+                  className="block px-3 py-2 text-sm hover:bg-[--color-surface]"
+                  href="https://docs.paywithlocus.com/wrapped-apis"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Wrapped APIs
+                </a>
+                <div className="mt-2 px-3 pb-2">
+                  <a href="/marketplace" className="block">
+                    <Button size="sm" className="w-full">
+                      Launch app
+                    </Button>
+                  </a>
+                </div>
+              </div>
+            </details>
           </div>
         </header>
 

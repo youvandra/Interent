@@ -30,9 +30,6 @@ export default async function Home() {
                   Open marketplace <ArrowRight className="h-4 w-4" />
                 </Button>
               </a>
-              <a href="/skill" className="text-sm text-[--color-muted] underline">
-                Agent guide (SKILL.md)
-              </a>
             </div>
           </div>
 
