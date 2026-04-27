@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { LocusCheckout } from "@withlocus/checkout-react";
 import Link from "next/link";
@@ -9,8 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Loader2, ShieldCheck } from "lucide-react";
 
-export default function CheckoutPage({ params }: { params: { id: string } }) {
-  const packId = params.id;
+export default function CheckoutPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id: packId } = React.use(params);
   const buyerId = useMemo(() => getOrCreateBuyerId(), []);
 
   const [sessionId, setSessionId] = useState<string | null>(null);

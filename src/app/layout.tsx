@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Badge } from "@/components/ui/badge";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,28 +28,8 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-[--color-surface-page] text-[--color-text]">
-        {/* Top announcement bar (inspired by Locus) */}
-        <div className="w-full bg-[--color-primary] text-white">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-2 text-xs">
-            <div className="flex items-center gap-2">
-              <Badge className="border-white/20 bg-white/10 text-white">BETA</Badge>
-              <span className="opacity-90">
-                Stripe-style USDC checkout, machine-readable by design.
-              </span>
-            </div>
-            <a
-              className="opacity-90 hover:opacity-100"
-              href="https://docs.paywithlocus.com/checkout"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Docs
-            </a>
-          </div>
-        </div>
-
-        <header className="sticky top-0 z-10 w-full border-b border-[--color-border] bg-white/80 backdrop-blur">
+      <body className="min-h-full bg-white text-[--color-text]">
+        <header className="sticky top-0 z-10 w-full border-b border-[--color-border] bg-white/90 backdrop-blur">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
             <a href="/" className="text-sm font-semibold tracking-tight">
               Interent

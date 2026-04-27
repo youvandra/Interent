@@ -1,21 +1,23 @@
 @import "tailwindcss";
 
 :root {
+  /* Base */
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #1b1b1c;
 
-  /* Interent theme (inspired by Locus UI) */
+  /* Locus-like brand */
   --primary: #4101f6;
   --primary-2: #5934ff;
   --primary-soft: #f4f0ff;
+  --cta-gradient: linear-gradient(180deg, #5934ff 0%, #4101f6 100%);
 
+  /* UI tokens */
   --text: #1b1b1c;
-  --muted: #6b7280;
-
-  --border: #dddde0;
+  --muted: #667085;
+  --border: #e6e7ea;
   --border-strong: #c7c8ca;
   --surface: #f4f4f6;
-  --surface-page: #fdfdfd;
+  --surface-page: #ffffff;
 }
 
 @theme inline {
@@ -27,6 +29,7 @@
   --color-primary: var(--primary);
   --color-primary-2: var(--primary-2);
   --color-primary-soft: var(--primary-soft);
+  --color-cta-gradient: var(--cta-gradient);
 
   --color-text: var(--text);
   --color-muted: var(--muted);
@@ -36,16 +39,14 @@
   --color-surface-page: var(--surface-page);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, Arial, "Helvetica Neue", sans-serif;
+}
+
+/* Subtle grid / noise-free, like Locus */
+::selection {
+  background: var(--primary-soft);
 }

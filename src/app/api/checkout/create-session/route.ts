@@ -31,6 +31,32 @@ export async function POST(req: Request) {
   const locusBase = getLocusApiBase();
   const locusKey = getLocusApiKey();
 
+  // Common failure di beta: wallet masih "deploying", sehingga create checkout session bisa error.
+  // Kita check dulu supaya error-nya jelas.
+  try {
+    const statusResp = await fetch(`${locusBase}/status`, {
+      headers: { Authorization: `Bearer ${locusKey}` },
+      cache: "no-store",
+    });
+    const statusJson = (await statusResp.json().catch(() => null)) as any;
+    const walletStatus =
+      statusJson?.data?.walletStatus ??
+      statusJson?.walletStatus ??
+      statusJson?.data?.status ??
+      null;
+    if (walletStatus && String(walletStatus).toLowerCase().includes("deploy")) {
+      return NextResponse.json(
+        {
+          error: "Locus wallet masih deploying. Tunggu sampai ready lalu coba lagi.",
+          walletStatus,
+        },
+        { status: 503 },
+      );
+    }
+  } catch {
+    // kalau status check gagal, lanjut aja (jangan block)
+  }
+
   const webhookUrl = `${appUrl}/api/webhooks/locus`;
 
   const payload = {
@@ -56,6 +82,8 @@ export async function POST(req: Request) {
 
   const json = (await resp.json().catch(() => null)) as any;
   if (!resp.ok) {
+    // Perjelas: sering terjadi kalau NEXT_PUBLIC_APP_URL masih localhost / belum https (webhook/redirect),
+    // atau akun belum di-claim, atau wallet belum siap.
     return NextResponse.json(
       { error: "Failed to create Locus session", status: resp.status, details: json },
       { status: 502 },
@@ -91,4 +119,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ sessionId, checkoutUrl });
 }
-

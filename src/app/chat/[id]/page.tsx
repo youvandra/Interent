@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getOrCreateBuyerId } from "@/lib/buyer";
@@ -9,8 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Lock } from "lucide-react";
 
-export default function ChatPage({ params }: { params: { id: string } }) {
-  const packId = params.id;
+export default function ChatPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id: packId } = React.use(params);
   const buyerId = useMemo(() => getOrCreateBuyerId(), []);
 
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);

@@ -20,7 +20,7 @@ export function Button({
         "disabled:pointer-events-none disabled:opacity-50",
         size === "sm" ? "h-9 px-3 text-sm" : "h-10 px-4 text-sm",
         variant === "primary" &&
-          "bg-[--color-primary] text-white hover:bg-[--color-primary-2]",
+          "text-white [background:var(--cta-gradient)] hover:opacity-95",
         variant === "secondary" &&
           "border border-[--color-border] bg-white text-[--color-text] hover:bg-[--color-surface]",
         variant === "ghost" &&
@@ -31,4 +31,3 @@ export function Button({
     />
   );
 }
-
