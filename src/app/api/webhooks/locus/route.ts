@@ -16,6 +16,69 @@ function computeHmacSha256(payload: string, secret: string) {
   );
 }
 
+function extractFirstUrl(text: string) {
+  const m = text.match(/https?:\/\/\S+/i);
+  return m?.[0] ?? null;
+}
+
+function inferDeepLTargetLang(text: string): string {
+  const t = text.toLowerCase();
+  if (/(spanish|español|espanol)\b/.test(t)) return "ES";
+  if (/(indonesian|bahasa|indonesia|indo)\b/.test(t)) return "ID";
+  if (/\benglish\b|\ben\b/.test(t)) return "EN";
+  if (/\bjapanese\b|\bja\b/.test(t)) return "JA";
+  if (/\bkorean\b|\bko\b/.test(t)) return "KO";
+  if (/\bchinese\b|\bzh\b/.test(t)) return "ZH";
+  return "EN";
+}
+
+function extractTextFromResult(provider: string, endpoint: string, data: any): string | null {
+  // Best-effort extraction so the next step can consume text.
+  if (!data) return null;
+
+  // Firecrawl
+  if (provider === "firecrawl") {
+    return (
+      (typeof data?.markdown === "string" && data.markdown) ||
+      (typeof data?.content === "string" && data.content) ||
+      null
+    );
+  }
+
+  // DeepL
+  if (provider === "deepl" || endpoint === "translate") {
+    const v =
+      data?.translations?.[0]?.text ??
+      data?.text ??
+      (Array.isArray(data?.translations)
+        ? data.translations.map((x: any) => x?.text).filter(Boolean).join("\n")
+        : null);
+    return typeof v === "string" ? v : null;
+  }
+
+  // OpenAI chat
+  if (provider === "openai" && endpoint === "chat") {
+    const v = data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text ?? null;
+    return typeof v === "string" ? v : null;
+  }
+
+  // Gemini chat (wrapped)
+  if (provider === "gemini" && endpoint === "chat") {
+    const v =
+      data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text).filter(Boolean).join("\n") ??
+      data?.text ??
+      null;
+    return typeof v === "string" ? v : null;
+  }
+
+  // Fallback: common field names
+  for (const k of ["text", "content", "output", "result"]) {
+    if (typeof data?.[k] === "string") return data[k];
+  }
+
+  return null;
+}
+
 export async function POST(req: Request) {
   const raw = await req.text();
   const signature = req.headers.get("x-signature-256") || "";
@@ -110,60 +173,67 @@ export async function POST(req: Request) {
           (stepTasks ?? []).map((t: any) => [t.id, { provider: t.provider, endpoint: t.endpoint }]),
         );
 
-        // Minimal piping for the canonical demo chain:
-        // firecrawl_scrape -> translate_deepl -> openai_tts
+        // Best-effort generic piping:
+        // output of step i becomes input for step i+1 when possible.
         const wfPrompt = String((input as any)?.prompt ?? "");
         const outputs: any[] = [];
 
-        let scrapedText: string | null = null;
-        let translatedText: string | null = null;
+        let lastText: string | null = null;
+        const url = extractFirstUrl(wfPrompt);
+        const deeplTarget = inferDeepLTargetLang(wfPrompt);
 
         for (const step of steps) {
           const meta = stepMap.get(step.taskId);
           if (!meta) throw new Error(`Unknown taskId in workflow: ${step.taskId}`);
 
-          if (step.taskId === "firecrawl_scrape") {
-            // Expect the user prompt contains a URL; simple extraction
-            const urlMatch = wfPrompt.match(/https?:\/\/\S+/);
-            const url = urlMatch?.[0];
-            if (!url) throw new Error("No URL found in prompt for Firecrawl scrape");
-            const data = await callWrappedApi(meta.provider, meta.endpoint, {
-              url,
-              formats: ["markdown"],
-            });
-            outputs.push({ taskId: step.taskId, data });
-            scrapedText = String((data as any)?.markdown ?? (data as any)?.content ?? JSON.stringify(data));
-          } else if (step.taskId === "translate_deepl") {
-            if (!scrapedText) throw new Error("Missing scraped text for translation");
-            const data = await callWrappedApi(meta.provider, meta.endpoint, {
-              text: [scrapedText],
-              target_lang: "ID",
-            });
-            outputs.push({ taskId: step.taskId, data });
-            // DeepL shape can vary; keep robust
-            translatedText =
-              String(
-                (data as any)?.translations?.[0]?.text ??
-                  (data as any)?.text ??
-                  JSON.stringify(data),
-              );
-          } else if (step.taskId === "openai_tts") {
-            if (!translatedText) throw new Error("Missing translated text for TTS");
-            const data = await callWrappedApi(meta.provider, meta.endpoint, {
-              model: "gpt-4o-mini-tts",
-              input: translatedText,
+          const provider = meta.provider;
+          const endpoint = meta.endpoint;
+
+          let body: any = {};
+
+          if (endpoint === "scrape") {
+            if (!url) throw new Error("No URL found in prompt for scrape");
+            body = { url, formats: ["markdown"] };
+          } else if (endpoint === "search") {
+            body = { query: wfPrompt };
+          } else if (endpoint === "extract") {
+            if (!url) throw new Error("No URL found in prompt for extract");
+            body = { urls: [url] };
+          } else if (endpoint === "translate") {
+            if (!lastText) throw new Error("Missing text for translation");
+            body = { text: [lastText], target_lang: deeplTarget };
+          } else if (endpoint === "chat") {
+            const inputText = lastText ?? wfPrompt;
+            if (provider === "openai") {
+              body = { model: "gpt-4o-mini", messages: [{ role: "user", content: inputText }] };
+            } else if (provider === "gemini") {
+              body = { model: "gemini-2.5-flash", messages: [{ role: "user", content: inputText }] };
+            } else {
+              body = { model: "default", messages: [{ role: "user", content: inputText }] };
+            }
+          } else if (endpoint === "tts") {
+            const inputText = lastText ?? wfPrompt;
+            body = {
+              model: provider === "openai" ? "gpt-4o-mini-tts" : "tts-1",
+              input: inputText,
               voice: "alloy",
               response_format: "mp3",
-            });
-            outputs.push({ taskId: step.taskId, data });
+            };
+          } else if (endpoint === "image-generate") {
+            const promptText = lastText ?? wfPrompt;
+            body = { prompt: promptText };
           } else {
-            // Generic step: run with empty params (or future: allow params in workflow input)
-            const data = await callWrappedApi(meta.provider, meta.endpoint, {});
-            outputs.push({ taskId: step.taskId, data });
+            body = lastText ? { input: lastText } : {};
           }
+
+          const data = await callWrappedApi(provider, endpoint, body);
+          outputs.push({ taskId: step.taskId, provider, endpoint, input: body, data });
+
+          const nextText = extractTextFromResult(provider, endpoint, data);
+          if (nextText) lastText = nextText;
         }
 
-        result = { kind: "workflow", steps: outputs };
+        result = { kind: "workflow", prompt: wfPrompt, steps: outputs, finalText: lastText };
       } else
       if (task.id === "ocr_mathpix") {
         const src = (input as any).imageUrl || (input as any).src;
