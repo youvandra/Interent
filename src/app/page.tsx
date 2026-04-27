@@ -2,10 +2,13 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { HowItWorksAnimation } from "@/components/site/how-it-works-animation";
 import { Section } from "@/components/site/section";
+import { GeometricBackground } from "@/components/site/geometric-bg";
 
 export default async function Home() {
   return (
-    <div className="flex flex-col gap-14">
+    <div className="relative">
+      <GeometricBackground />
+      <div className="relative flex flex-col gap-14">
       {/* HERO */}
       <Section className="py-0">
         <div className="grid items-start gap-10 lg:grid-cols-12">
@@ -176,6 +179,7 @@ export default async function Home() {
           </a>
         </div>
       </Section>
+      </div>
     </div>
   );
 }
