@@ -17,6 +17,14 @@ type PlannedStep = {
   priceUsdc: string;
 };
 
+function formatUsdc(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "0";
+  const s = typeof value === "number" ? value.toString() : String(value);
+  // Normalize and trim trailing zeros: "0.001000" -> "0.001", "1.000000" -> "1"
+  if (!s.includes(".")) return s;
+  return s.replace(/\.?0+$/, "");
+}
+
 export function InputClient() {
   const searchParams = useSearchParams();
   const buyerId = useMemo(() => getOrCreateBuyerId(), []);
@@ -211,13 +219,13 @@ export function InputClient() {
                     {plan.steps.map((s) => (
                       <div key={`${s.taskId ?? s.label}`} className="flex items-center justify-between">
                         <span>{s.label}</span>
-                        <span>{s.missing ? "—" : `$${s.priceUsdc}`}</span>
+                        <span>{s.missing ? "—" : `$${formatUsdc(s.priceUsdc)}`}</span>
                       </div>
                     ))}
                     <div className="mt-2 border-t border-[--color-border] pt-2 space-y-1">
                       <div className="flex items-center justify-between text-sm">
                         <span>Subtotal (tools)</span>
-                        <span>${plan.subtotalToolsUsdc ?? plan.totalPriceUsdc}</span>
+                        <span>${formatUsdc(plan.subtotalToolsUsdc ?? plan.totalPriceUsdc)}</span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span>
@@ -227,12 +235,12 @@ export function InputClient() {
                             : "(5%)"}
                         </span>
                         <span>
-                          ${plan.serviceFeeUsdc ?? "0.00"}
+                          ${formatUsdc(plan.serviceFeeUsdc ?? "0")}
                         </span>
                       </div>
                       <div className="flex items-center justify-between font-semibold text-[--color-text]">
                         <span>Total</span>
-                        <span>${plan.totalPriceUsdc}</span>
+                        <span>${formatUsdc(plan.totalPriceUsdc)}</span>
                       </div>
                     </div>
                   </div>
