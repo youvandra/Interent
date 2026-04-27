@@ -1,11 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, RefreshCw } from "lucide-react";
 
@@ -24,17 +23,19 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
   const [status, setStatus] = useState<JobStatus | null>(null);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [manualLoading, setManualLoading] = useState(false);
+  const [polling, setPolling] = useState(false);
+  const pollRef = useRef<number | null>(null);
 
   useEffect(() => {
     const fromStorage = window.localStorage.getItem(storageKey);
     if (fromStorage) setJobToken(fromStorage);
   }, [storageKey]);
 
-  async function refresh() {
+  async function refresh({ silent = false }: { silent?: boolean } = {}) {
     setError(null);
     if (!jobToken) return;
-    setLoading(true);
+    if (!silent) setManualLoading(true);
     try {
       const resp = await fetch(`/api/jobs/${jobId}`, {
         headers: { Authorization: `Bearer ${jobToken}` },
@@ -54,21 +55,45 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
-      setLoading(false);
+      if (!silent) setManualLoading(false);
     }
   }
 
-  // auto-poll
+  // auto-poll (silent) until terminal state
   useEffect(() => {
     if (!jobToken) return;
-    refresh();
-    const t = window.setInterval(() => refresh(), 2500);
-    return () => window.clearInterval(t);
+    setPolling(true);
+    refresh({ silent: true });
+
+    // clear any previous interval
+    if (pollRef.current) window.clearInterval(pollRef.current);
+    pollRef.current = window.setInterval(() => refresh({ silent: true }), 3000);
+
+    return () => {
+      if (pollRef.current) window.clearInterval(pollRef.current);
+      pollRef.current = null;
+      setPolling(false);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobToken, jobId]);
 
-  function saveToken() {
-    window.localStorage.setItem(storageKey, jobToken);
+  // Stop polling when terminal
+  useEffect(() => {
+    const s = status?.status;
+    if (!s) return;
+    if (s === "DONE" || s === "FAILED" || s === "EXPIRED") {
+      if (pollRef.current) window.clearInterval(pollRef.current);
+      pollRef.current = null;
+      setPolling(false);
+    }
+  }, [status?.status]);
+
+  function setTokenViaPrompt() {
+    const v = window.prompt("Paste job token (job_live_...):", jobToken || "");
+    if (!v) return;
+    const next = v.trim();
+    setJobToken(next);
+    window.localStorage.setItem(storageKey, next);
   }
 
   return (
@@ -76,43 +101,55 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
       <div className="lg:col-span-4">
         <Card>
           <CardHeader>
-            <CardTitle>Job</CardTitle>
-            <CardDescription>Track execution & fetch result.</CardDescription>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle>Job</CardTitle>
+                <CardDescription>Track execution & fetch result.</CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 w-9 p-0"
+                onClick={() => refresh({ silent: false })}
+                disabled={!jobToken || manualLoading}
+                aria-label="Refresh job"
+                title="Refresh"
+              >
+                {manualLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="text-[--color-muted]">Job ID</span>
-              <Badge className="max-w-[220px] truncate">{jobId}</Badge>
+              <span className="max-w-[220px] truncate font-mono text-xs text-[--color-text]">
+                {jobId}
+              </span>
             </div>
 
             <div className="space-y-2">
               <div className="text-sm font-medium">Job token</div>
-              <Input
-                value={jobToken}
-                onChange={(e) => setJobToken(e.target.value)}
-                placeholder="job_live_..."
-              />
-              <div className="flex gap-2">
-                <Button variant="secondary" onClick={saveToken}>
-                  Save token
-                </Button>
-                <Button variant="ghost" onClick={refresh} disabled={!jobToken || loading}>
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                  Refresh
+              <div className="flex items-center justify-between gap-3">
+                <span className="max-w-[220px] truncate font-mono text-xs text-[--color-text]">
+                  {jobToken || "—"}
+                </span>
+                <Button variant="secondary" onClick={setTokenViaPrompt}>
+                  Set token
                 </Button>
               </div>
+              {/* Refresh moved to top-right in header */}
               <div className="text-xs text-[--color-muted]">
                 This token is stored only in your browser. If you lose it, the job will still run,
                 but you won’t be able to fetch the result.
               </div>
             </div>
 
-            <Link href="/provider">
-              <Button className="w-full">Back to providers</Button>
+            <Link href="/input">
+              <Button className="w-full">Back to describe</Button>
             </Link>
           </CardContent>
         </Card>
@@ -143,7 +180,9 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
                   <div className="mt-2 text-xs text-red-700">{status.error}</div>
                 )}
                 <div className="mt-2 text-xs text-[--color-muted]">
-                  Polls every ~2.5 seconds. Small tasks usually finish quickly.
+                  {polling
+                    ? "Auto-refreshing every ~3s until completion."
+                    : "Auto-refresh stopped."}
                 </div>
               </div>
             )}
