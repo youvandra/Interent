@@ -1,5 +1,7 @@
 export function getLocusApiBase(): string {
-  return process.env.LOCUS_API_BASE || "https://beta-api.paywithlocus.com/api";
+  const base = process.env.LOCUS_API_BASE;
+  if (!base) throw new Error("LOCUS_API_BASE belum di-set");
+  return base;
 }
 
 export function getAppUrl(): string {
@@ -13,4 +15,3 @@ export function getLocusApiKey(): string {
   if (!key) throw new Error("LOCUS_API_KEY belum di-set");
   return key;
 }
-

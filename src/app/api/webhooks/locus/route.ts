@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
+import { callWrappedApi } from "@/lib/locus_wrapped";
 
 function safeEqual(a: string, b: string) {
   const aBuf = Buffer.from(a);
@@ -35,18 +36,18 @@ export async function POST(req: Request) {
   if (!sessionId) return NextResponse.json({ error: "Missing sessionId" }, { status: 400 });
 
   const sb = supabaseServer();
-  const { data: session, error: sessErr } = await sb
-    .from("checkout_sessions")
+  const { data: job, error: jobErr } = await sb
+    .from("jobs")
     .select("*")
     .eq("session_id", sessionId)
     .maybeSingle();
 
-  if (sessErr) return NextResponse.json({ error: sessErr.message }, { status: 500 });
-  if (!session) return NextResponse.json({ error: "Unknown sessionId" }, { status: 404 });
+  if (jobErr) return NextResponse.json({ error: jobErr.message }, { status: 500 });
+  if (!job) return NextResponse.json({ error: "Unknown sessionId" }, { status: 404 });
 
   // Verify signature (kalau kita punya webhook secret dari create session)
-  if (session.webhook_secret) {
-    const expected = computeHmacSha256(raw, session.webhook_secret);
+  if (job.webhook_secret) {
+    const expected = computeHmacSha256(raw, job.webhook_secret);
     if (!signature || !safeEqual(signature, expected)) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
@@ -57,39 +58,96 @@ export async function POST(req: Request) {
     const txHash = parsed?.data?.paymentTxHash || parsed?.data?.txHash || null;
     const paidAt = parsed?.data?.paidAt ? new Date(parsed.data.paidAt).toISOString() : null;
 
-    // Update session
+    // Mark PAID -> RUNNING
     await sb
-      .from("checkout_sessions")
+      .from("jobs")
       .update({
-        status: "PAID",
+        status: "RUNNING",
         paid_at: paidAt,
-        payment_tx_hash: txHash,
+        updated_at: new Date().toISOString(),
       })
-      .eq("session_id", sessionId);
+      .eq("id", job.id);
 
-    // Grant entitlement
-    await sb.from("entitlements").upsert(
-      {
-        buyer_id: session.buyer_id,
-        pack_id: session.pack_id,
-        status: "ACTIVE",
-        payment_tx_hash: txHash,
-      },
-      { onConflict: "buyer_id,pack_id" },
-    );
+    // Load task
+    const { data: task, error: taskErr } = await sb
+      .from("tasks")
+      .select("*")
+      .eq("id", job.task_id)
+      .maybeSingle();
 
-    return NextResponse.json({ ok: true });
+    if (taskErr || !task) {
+      await sb
+        .from("jobs")
+        .update({
+          status: "FAILED",
+          error_message: taskErr?.message || "Task not found",
+          updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
+      return NextResponse.json({ ok: false });
+    }
+
+    // Execute wrapped API (Interent wallet pays per call)
+    try {
+      const input = job.input_json || {};
+      let result: unknown = null;
+
+      if (task.id === "ocr_mathpix") {
+        const src = (input as any).imageUrl || (input as any).src;
+        if (!src) throw new Error("Missing input.imageUrl");
+        result = await callWrappedApi(task.provider, task.endpoint, {
+          src,
+          formats: ["text"],
+        });
+      } else if (task.id === "translate_deepl") {
+        const text = (input as any).text;
+        const targetLang = (input as any).targetLang || "EN";
+        const sourceLang = (input as any).sourceLang;
+        if (!text) throw new Error("Missing input.text");
+        result = await callWrappedApi(task.provider, task.endpoint, {
+          text: [String(text)],
+          target_lang: String(targetLang),
+          ...(sourceLang ? { source_lang: String(sourceLang) } : {}),
+        });
+      } else {
+        // fallback generic
+        result = await callWrappedApi(task.provider, task.endpoint, input);
+      }
+
+      await sb
+        .from("jobs")
+        .update({
+          status: "DONE",
+          result_json: { txHash, provider: task.provider, endpoint: task.endpoint, data: result },
+          updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
+
+      return NextResponse.json({ ok: true });
+    } catch (e: any) {
+      await sb
+        .from("jobs")
+        .update({
+          status: "FAILED",
+          error_message: String(e?.message || e),
+          updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
+      return NextResponse.json({ ok: false });
+    }
   }
 
   if (event === "checkout.session.expired") {
     await sb
-      .from("checkout_sessions")
-      .update({ status: "EXPIRED" })
-      .eq("session_id", sessionId);
+      .from("jobs")
+      .update({ status: "EXPIRED", updated_at: new Date().toISOString() })
+      .eq("id", job.id);
     return NextResponse.json({ ok: true });
   }
 
   // Unknown events: ack biar nggak retry terus
   return NextResponse.json({ ok: true, ignored: true });
 }
-

@@ -38,17 +38,9 @@ export default function RootLayout({
             <nav className="flex items-center gap-2 text-sm">
               <a
                 className="rounded-lg px-3 py-2 text-[--color-muted] hover:bg-[--color-surface] hover:text-[--color-text]"
-                href="/"
+                href="/skill"
               >
-                Marketplace
-              </a>
-              <a
-                className="rounded-lg px-3 py-2 text-[--color-muted] hover:bg-[--color-surface] hover:text-[--color-text]"
-                href="https://beta.paywithlocus.com/"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Locus Beta
+                SKILL.MD
               </a>
             </nav>
           </div>
@@ -59,24 +51,7 @@ export default function RootLayout({
         <footer className="border-t border-[--color-border] bg-white">
           <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-8 text-sm text-[--color-muted] sm:flex-row sm:items-center sm:justify-between">
             <div>© {new Date().getFullYear()} Interent</div>
-            <div className="flex items-center gap-4">
-              <a
-                className="hover:text-[--color-text]"
-                href="https://docs.paywithlocus.com/hackathon"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Hackathon
-              </a>
-              <a
-                className="hover:text-[--color-text]"
-                href="https://docs.paywithlocus.com/checkout"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Checkout Docs
-              </a>
-            </div>
+            <div>Build untuk event internal (menggunakan teknologi Locus).</div>
           </div>
         </footer>
       </body>

@@ -1,6 +1,6 @@
 # Interent (Supabase + Serverless)
 
-MVP hackathon: marketplace “AI memory pack” + paywall via **Locus Checkout** (USDC on Base).
+MVP untuk event internal: **pay-to-run tasks** (OCR, translation, dll) dengan **Locus Checkout** + eksekusi via **Locus Wrapped APIs**.
 
 ## 1) Setup Supabase
 
@@ -13,11 +13,12 @@ MVP hackathon: marketplace “AI memory pack” + paywall via **Locus Checkout**
 
 > Untuk MVP, reads dilakukan via public anon key. Writes (webhook) via service role key.
 
-## 2) Setup Locus (Hackathon Beta)
+## 2) Setup Locus (Internal)
 
-1. Daftar di `beta.paywithlocus.com` pakai kode **PAYGENTIC**
-2. Dapatkan `LOCUS_API_KEY` (prefix `claw_...`)
-3. Set `LOCUS_API_BASE=https://beta-api.paywithlocus.com/api`
+1. Minta `LOCUS_API_KEY` dan `LOCUS_API_BASE` ke tim/platform internal
+2. Set env:
+   - `LOCUS_API_KEY`
+   - `LOCUS_API_BASE`
 
 ## 3) Env vars
 
@@ -47,14 +48,14 @@ Webhook endpoint:
 - `POST /api/webhooks/locus`
 
 Handler akan:
-1. Cari `checkout_sessions.session_id`
+1. Cari `jobs.session_id`
 2. Kalau `webhook_secret` ada, verify HMAC header `X-Signature-256`
-3. Kalau event `checkout.session.paid` → upsert entitlement
+3. Kalau event `checkout.session.paid` → jalankan Wrapped API sesuai `task_id` → simpan result di `jobs.result_json`
 
 ## Troubleshooting
 
 ### `@locus/agent-sdk` nggak bisa di-install
 Package merchant SDK ini belum ada di npm publik. Jadi project ini **create checkout session via REST** di:
-- `src/app/api/checkout/create-session/route.ts`
+- `src/app/api/jobs/create/route.ts`
 
 Kalau ternyata endpoint create session beda di environment kamu, edit 1 tempat itu aja.

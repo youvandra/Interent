@@ -1,51 +1,49 @@
--- Locus Memory Marketplace (MVP)
+-- Interent (MVP) — Pay-to-run tasks via Locus Checkout + Locus Wrapped APIs
 -- Jalankan ini di Supabase SQL Editor.
 
--- 1) Memory packs (yang dijual)
-create table if not exists public.memory_packs (
+-- 1) Task catalog
+create table if not exists public.tasks (
   id text primary key,
   title text not null,
   description text not null,
   price_usdc numeric(12,2) not null check (price_usdc > 0),
+  provider text not null,  -- locus wrapped provider slug (mis. deepl, mathpix)
+  endpoint text not null,  -- locus wrapped endpoint (mis. translate, process-image)
   created_at timestamptz not null default now()
 );
 
--- 2) Checkout sessions (buat mapping sessionId -> packId + webhook secret)
-create table if not exists public.checkout_sessions (
-  session_id uuid primary key,
-  buyer_id text not null,
-  pack_id text not null references public.memory_packs(id) on delete cascade,
-  webhook_secret text,
-  status text not null default 'PENDING',
-  checkout_url text,
-  created_at timestamptz not null default now(),
-  paid_at timestamptz,
-  payment_tx_hash text
-);
-
-create index if not exists checkout_sessions_buyer_id_idx on public.checkout_sessions(buyer_id);
-create index if not exists checkout_sessions_pack_id_idx on public.checkout_sessions(pack_id);
-
--- 3) Entitlements (hak akses ke pack setelah paid)
-create table if not exists public.entitlements (
+-- 2) Jobs (dibuat sebelum bayar; dieksekusi setelah PAID)
+create table if not exists public.jobs (
   id uuid primary key default gen_random_uuid(),
   buyer_id text not null,
-  pack_id text not null references public.memory_packs(id) on delete cascade,
-  status text not null default 'ACTIVE',
-  granted_at timestamptz not null default now(),
-  expires_at timestamptz,
-  payment_tx_hash text,
-  unique (buyer_id, pack_id)
+  task_id text not null references public.tasks(id) on delete cascade,
+
+  status text not null default 'PENDING_PAYMENT',
+  input_json jsonb,
+  result_json jsonb,
+  error_message text,
+
+  job_token_hash text not null, -- sha256 token; token plaintext hanya dikasih sekali ke buyer
+
+  -- Locus checkout linkage
+  session_id uuid,
+  webhook_secret text,
+  checkout_url text,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  paid_at timestamptz,
+  completed_at timestamptz
 );
 
-create index if not exists entitlements_buyer_id_idx on public.entitlements(buyer_id);
-create index if not exists entitlements_pack_id_idx on public.entitlements(pack_id);
+create index if not exists jobs_buyer_id_idx on public.jobs(buyer_id);
+create index if not exists jobs_task_id_idx on public.jobs(task_id);
+create index if not exists jobs_status_idx on public.jobs(status);
+create index if not exists jobs_session_id_idx on public.jobs(session_id);
 
--- Seed contoh packs
-insert into public.memory_packs (id, title, description, price_usdc)
+-- Seed contoh tasks
+insert into public.tasks (id, title, description, price_usdc, provider, endpoint)
 values
-  ('elon_v1', 'Elon-style Context v1', 'Persona + decision-making context ala Elon (demo).', 5.00),
-  ('bezos_v1', 'Bezos-style Context v1', 'Customer obsession + strategy memo context ala Bezos (demo).', 5.00),
-  ('naval_v1', 'Naval-style Context v1', 'Leverage, judgment, and wealth-building mental models (demo).', 5.00)
+  ('ocr_mathpix', 'OCR (Mathpix)', 'Extract text/LaTeX from an image URL.', 5.00, 'mathpix', 'process-image'),
+  ('translate_deepl', 'Translate (DeepL)', 'High-quality translation for heavy text.', 5.00, 'deepl', 'translate')
 on conflict (id) do nothing;
-
