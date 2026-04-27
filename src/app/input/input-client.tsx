@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { SquareSpinner } from "@/components/ui/square-spinner";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, FlaskConical } from "lucide-react";
 
 type PlannedStep = {
   taskId: string | null;
@@ -594,7 +594,10 @@ export function InputClient() {
                       {testPaying ? (
                         <SquareSpinner />
                       ) : (
-                        "Test Pay"
+                        <>
+                          <FlaskConical className="h-4 w-4" />
+                          Test Pay
+                        </>
                       )}
                     </Button>
                   </div>

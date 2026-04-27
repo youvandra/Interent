@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SquareSpinner } from "@/components/ui/square-spinner";
-import { RefreshCw } from "lucide-react";
+import { KeyRound, Plus, RefreshCw, RotateCcw } from "lucide-react";
 
 type JobStatus = {
   jobId: string;
@@ -157,6 +157,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
                   {jobToken || "—"}
                 </span>
                 <Button variant="secondary" onClick={setTokenViaPrompt}>
+                  <KeyRound className="h-4 w-4" />
                   Set token
                 </Button>
               </div>
@@ -170,11 +171,15 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
             <div className="grid grid-cols-2 gap-2">
               <Link href="/input">
                 <Button className="w-full" variant="secondary">
+                  <Plus className="h-4 w-4" />
                   New task
                 </Button>
               </Link>
               <Link href={`/input?job=${encodeURIComponent(jobId)}&regenerate=1`}>
-                <Button className="w-full">Regenerate</Button>
+                <Button className="w-full">
+                  <RotateCcw className="h-4 w-4" />
+                  Regenerate
+                </Button>
               </Link>
             </div>
           </CardContent>

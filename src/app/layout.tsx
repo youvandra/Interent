@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
+import { BookOpen, Menu } from "lucide-react";
 import { Logo } from "@/components/site/logo";
 
 const geistSans = Geist({
@@ -100,7 +100,10 @@ export default function RootLayout({
                 Provider
               </a>
               <a href="/skill">
-                <Button size="sm">Agent guide</Button>
+                <Button size="sm">
+                  <BookOpen className="h-4 w-4" />
+                  Agent guide
+                </Button>
               </a>
             </div>
 
@@ -118,6 +121,7 @@ export default function RootLayout({
                 <div className="mt-2 px-3 pb-2">
                   <a href="/skill" className="block">
                     <Button size="sm" className="w-full">
+                      <BookOpen className="h-4 w-4" />
                       Agent guide
                     </Button>
                   </a>

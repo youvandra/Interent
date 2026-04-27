@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { SquareSpinner } from "@/components/ui/square-spinner";
-import { ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 
 type Task = {
   id: string;
@@ -156,7 +156,10 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
                 <CardDescription>Pay once, Interent executes via Locus Wrapped APIs.</CardDescription>
               </div>
               <Link href="/provider">
-                <Button variant="ghost">Back</Button>
+                <Button variant="ghost">
+                  <ArrowLeft className="h-4 w-4" />
+                  Back
+                </Button>
               </Link>
             </div>
           </CardHeader>
