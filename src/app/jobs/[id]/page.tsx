@@ -158,10 +158,23 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
       <div className="lg:col-span-8">
         <Card>
           <CardHeader>
-            <CardTitle>Status</CardTitle>
-            <CardDescription>
-              {status ? `Task: ${status.taskId}` : "Enter a token to start polling."}
-            </CardDescription>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle>Result</CardTitle>
+                <CardDescription>
+                  {!jobToken
+                    ? "Set a token to start polling."
+                    : status?.status === "DONE"
+                      ? "Completed."
+                      : status?.status === "FAILED"
+                        ? "Failed."
+                        : polling
+                          ? "Waiting for completion…"
+                          : "Waiting for completion…"}
+                </CardDescription>
+              </div>
+              {status?.status ? <Badge>{status.status}</Badge> : null}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {error && (
@@ -170,31 +183,27 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
               </div>
             )}
 
-            {status && (
-              <div className="rounded-xl border border-[--color-border] bg-[--color-surface] p-4 text-sm">
-                <div className="flex items-center justify-between">
-                  <div className="font-medium text-[--color-text]">Status</div>
-                  <Badge>{status.status}</Badge>
-                </div>
-                {status.status === "FAILED" && (
-                  <div className="mt-2 text-xs text-red-700">{status.error}</div>
-                )}
-                <div className="mt-2 text-xs text-[--color-muted]">
-                  {polling
-                    ? "Auto-refreshing every ~3s until completion."
-                    : "Auto-refresh stopped."}
-                </div>
+            {status?.status === "FAILED" && status.error ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {status.error}
               </div>
-            )}
+            ) : null}
 
             {result && (
               <div className="rounded-xl border border-[--color-border] bg-white p-4">
-                <div className="text-sm font-medium">Result</div>
+                <div className="text-sm font-medium">Output</div>
                 <pre className="mt-2 max-h-[420px] overflow-auto rounded-lg bg-[--color-surface] p-3 text-xs text-[--color-text]">
 {JSON.stringify(result, null, 2)}
                 </pre>
               </div>
             )}
+
+            {!result && jobToken && status?.status !== "DONE" ? (
+              <div className="rounded-xl border border-[--color-border] bg-white p-4 text-sm text-[--color-muted]">
+                No result yet.{" "}
+                {polling ? "Auto-refreshing…" : "Refresh manually from the Job card."}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </div>
