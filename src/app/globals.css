@@ -50,3 +50,5 @@ body {
 ::selection {
   background: var(--primary-soft);
 }
+
+/* (diagram styles kept minimal; no animations) */

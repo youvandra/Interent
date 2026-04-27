@@ -51,7 +51,6 @@ export default function RootLayout({
         <footer className="border-t border-[--color-border] bg-white">
           <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-8 text-sm text-[--color-muted] sm:flex-row sm:items-center sm:justify-between">
             <div>© {new Date().getFullYear()} Interent</div>
-            <div>Build untuk event internal (menggunakan teknologi Locus).</div>
           </div>
         </footer>
       </body>

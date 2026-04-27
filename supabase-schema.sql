@@ -44,6 +44,6 @@ create index if not exists jobs_session_id_idx on public.jobs(session_id);
 -- Seed contoh tasks
 insert into public.tasks (id, title, description, price_usdc, provider, endpoint)
 values
-  ('ocr_mathpix', 'OCR (Mathpix)', 'Extract text/LaTeX from an image URL.', 5.00, 'mathpix', 'process-image'),
-  ('translate_deepl', 'Translate (DeepL)', 'High-quality translation for heavy text.', 5.00, 'deepl', 'translate')
+  ('ocr_mathpix', 'OCR (Mathpix)', 'Extract text/LaTeX from an image URL.', 0.01, 'mathpix', 'process-image'),
+  ('translate_deepl', 'Translate (DeepL)', 'High-quality translation for heavy text.', 0.01, 'deepl', 'translate')
 on conflict (id) do nothing;
