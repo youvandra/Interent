@@ -52,6 +52,30 @@ Handler akan:
 2. Kalau `webhook_secret` ada, verify HMAC header `X-Signature-256`
 3. Kalau event `checkout.session.paid` → jalankan Wrapped API sesuai `task_id` → simpan result di `jobs.result_json`
 
+## Sync full Wrapped API catalog (populate `tasks`)
+
+Kalau kamu mau **lengkap** (semua provider + endpoint) di tabel `tasks`, jalankan sync endpoint (server-side) pakai `LOCUS_API_KEY`.
+
+1) Set env:
+- `ADMIN_SECRET` (string bebas)
+
+2) Panggil endpoint:
+
+```bash
+curl -X POST https://<your-domain>/api/admin/sync-tools \
+  -H "Content-Type: application/json" \
+  -H "x-admin-secret: <ADMIN_SECRET>" \
+  -d '{"priceUsdc": 0.01}'
+```
+
+Catatan: kamu juga bisa sync per provider:
+```bash
+curl -X POST https://<your-domain>/api/admin/sync-tools \
+  -H "Content-Type: application/json" \
+  -H "x-admin-secret: <ADMIN_SECRET>" \
+  -d '{"provider":"openai","priceUsdc":0.01}'
+```
+
 ## Troubleshooting
 
 ### `@locus/agent-sdk` nggak bisa di-install

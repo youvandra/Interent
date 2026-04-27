@@ -22,7 +22,9 @@ export function InputClient() {
   const buyerId = useMemo(() => getOrCreateBuyerId(), []);
 
   const [prompt, setPrompt] = useState(searchParams.get("text") || "");
-  const [loading, setLoading] = useState(false);
+  const [planning, setPlanning] = useState(false);
+  const [creatingCheckout, setCreatingCheckout] = useState(false);
+  const [plannedPrompt, setPlannedPrompt] = useState<string | null>(null);
   const [plan, setPlan] = useState<{
     steps: PlannedStep[];
     totalPriceUsdc: string;
@@ -39,9 +41,10 @@ export function InputClient() {
 
   async function generatePlan(text: string) {
     setError(null);
-    setLoading(true);
+    setPlanning(true);
     setPlan(null);
     setCheckout(null);
+    setPlannedPrompt(null);
     try {
       const resp = await fetch("/api/plan", {
         method: "POST",
@@ -51,10 +54,11 @@ export function InputClient() {
       const json = await resp.json().catch(() => null);
       if (!resp.ok) throw new Error(json?.error || "Failed to generate plan");
       setPlan(json);
+      setPlannedPrompt(text);
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
-      setLoading(false);
+      setPlanning(false);
     }
   }
 
@@ -68,7 +72,7 @@ export function InputClient() {
       return;
     }
     setError(null);
-    setLoading(true);
+    setCreatingCheckout(true);
     try {
       const resp = await fetch("/api/workflows/create", {
         method: "POST",
@@ -100,7 +104,7 @@ export function InputClient() {
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
-      setLoading(false);
+      setCreatingCheckout(false);
     }
   }
 
@@ -137,11 +141,16 @@ export function InputClient() {
             />
 
             <Button
-              disabled={!prompt.trim() || loading}
+              disabled={
+                !prompt.trim() ||
+                planning ||
+                creatingCheckout ||
+                (!!checkout || (!!plan && plannedPrompt === prompt))
+              }
               onClick={() => generatePlan(prompt)}
               className="w-full"
             >
-              {loading ? (
+              {planning ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" /> Planning…
                 </>
@@ -213,9 +222,15 @@ export function InputClient() {
                   <Button
                     className="w-full"
                     onClick={createWorkflowCheckout}
-                    disabled={loading || plan.steps.some((s) => s.missing)}
+                    disabled={planning || creatingCheckout || plan.steps.some((s) => s.missing)}
                   >
-                    Pay with Locus
+                    {creatingCheckout ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" /> Loading checkout…
+                      </>
+                    ) : (
+                      "Pay with Locus"
+                    )}
                   </Button>
                 )}
 
