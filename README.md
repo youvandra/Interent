@@ -1,35 +1,34 @@
 # Interent (Supabase + Serverless)
 
-MVP untuk event internal: **pay-to-run tasks** (OCR, translation, dll) dengan **Locus Checkout** + eksekusi via **Locus Wrapped APIs**.
+Internal-event MVP: **pay-to-run tasks** (OCR, translation, etc.) with **Locus Checkout** + execution via **Locus Wrapped APIs**.
 
 ## 1) Setup Supabase
 
-1. Bikin project di Supabase
-2. Buka **SQL Editor** → jalankan file: `supabase-schema.sql`
-3. Ambil env:
+1. Create a project in Supabase
+2. Open **SQL Editor** → run: `supabase-schema.sql`
+3. Grab these env vars:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY` (server-only)
 
-> Untuk MVP, reads dilakukan via public anon key. Writes (webhook) via service role key.
+> For the MVP: reads use the public anon key. Writes (webhook) use the service role key.
 
 ## 2) Setup Locus (Internal)
 
-1. Minta `LOCUS_API_KEY` dan `LOCUS_API_BASE` ke tim/platform internal
-2. Set env:
-   - `LOCUS_API_KEY`
-   - `LOCUS_API_BASE`
+Ask the internal platform/team for:
+- `LOCUS_API_KEY`
+- `LOCUS_API_BASE`
 
 ## 3) Env vars
 
-Copy `.env.example` → `.env.local` lalu isi.
+Copy `.env.example` → `.env.local` and fill it in.
 
-Penting:
-- `NEXT_PUBLIC_APP_URL` harus jadi base URL yang bisa diakses publik saat deploy (buat webhook).
-  - Lokal: `http://localhost:3000` (webhook nggak akan ke-hit dari internet)
+Important:
+- `NEXT_PUBLIC_APP_URL` must be a publicly reachable base URL when deployed (for webhooks).
+  - Local: `http://localhost:3000` (webhooks won't reach your local machine)
   - Deploy: `https://your-app.vercel.app`
 
-## 4) Run lokal
+## 4) Run locally
 
 ```bash
 npm install
@@ -38,8 +37,8 @@ npm run dev
 
 ## 5) Deploy (Vercel)
 
-1. Import repo ke Vercel
-2. Isi env vars (sama seperti `.env.local`)
+1. Import the repo into Vercel
+2. Set env vars (same as `.env.local`)
 3. Deploy
 
 ## Webhook notes
@@ -47,19 +46,19 @@ npm run dev
 Webhook endpoint:
 - `POST /api/webhooks/locus`
 
-Handler akan:
-1. Cari `jobs.session_id`
-2. Kalau `webhook_secret` ada, verify HMAC header `X-Signature-256`
-3. Kalau event `checkout.session.paid` → jalankan Wrapped API sesuai `task_id` → simpan result di `jobs.result_json`
+Handler behavior:
+1. Find the job by `jobs.session_id`
+2. If `webhook_secret` exists, verify the HMAC header `X-Signature-256`
+3. On `checkout.session.paid`, execute the Wrapped API for the job's `task_id` and store the result in `jobs.result_json`
 
 ## Sync full Wrapped API catalog (populate `tasks`)
 
-Kalau kamu mau **lengkap** (semua provider + endpoint) di tabel `tasks`, jalankan sync endpoint (server-side) pakai `LOCUS_API_KEY`.
+If you want the full catalog (all providers + endpoints) inside the `tasks` table, call the server-side sync endpoint.
 
 1) Set env:
-- `ADMIN_SECRET` (string bebas)
+- `ADMIN_SECRET` (any random string)
 
-2) Panggil endpoint:
+2) Call the endpoint:
 
 ```bash
 curl -X POST https://<your-domain>/api/admin/sync-tools \
@@ -68,7 +67,8 @@ curl -X POST https://<your-domain>/api/admin/sync-tools \
   -d '{"priceUsdc": 0.01}'
 ```
 
-Catatan: kamu juga bisa sync per provider:
+You can also sync a single provider:
+
 ```bash
 curl -X POST https://<your-domain>/api/admin/sync-tools \
   -H "Content-Type: application/json" \
@@ -78,8 +78,9 @@ curl -X POST https://<your-domain>/api/admin/sync-tools \
 
 ## Troubleshooting
 
-### `@locus/agent-sdk` nggak bisa di-install
-Package merchant SDK ini belum ada di npm publik. Jadi project ini **create checkout session via REST** di:
+### `@locus/agent-sdk` can't be installed
+
+The merchant SDK package isn't on the public npm registry. This project creates checkout sessions via REST in:
 - `src/app/api/jobs/create/route.ts`
 
-Kalau ternyata endpoint create session beda di environment kamu, edit 1 tempat itu aja.
+If your environment uses a different session-creation endpoint, update that one file.

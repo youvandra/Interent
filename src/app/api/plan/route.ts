@@ -12,6 +12,29 @@ type PlanStep = {
   params?: Record<string, unknown>;
 };
 
+function inferSupportedTaskId(label: string, userText: string) {
+  const l = (label || "").toLowerCase();
+  const t = (userText || "").toLowerCase();
+
+  // Common workflow intent → supported tools (demo defaults)
+  if (
+    /scrape|extract|article|body|website|url|link|http/.test(l) ||
+    /http|url|link/.test(t)
+  ) {
+    return "firecrawl_scrape";
+  }
+  if (
+    /translate|translation|terjemah|spanish|indonesian|english|japanese|korean|chinese/.test(l) ||
+    /translate|terjemah|spanish|indonesian|english|japanese|korean|chinese/.test(t)
+  ) {
+    return "translate_deepl";
+  }
+  if (/tts|text-to-speech|speech|audio|voice|mp3|wav/.test(l) || /tts|audio|voice/.test(t)) {
+    return "openai_tts";
+  }
+  return null;
+}
+
 function fallbackPlan(text: string): PlanStep[] {
   const t = text.toLowerCase();
   const wantsScrape = /http|link|url|scrap|crawl|website/.test(t);
@@ -156,12 +179,22 @@ export async function POST(req: Request) {
   const normalizedSteps = (steps ?? []).map((s) => {
     const tool = (s.tool || "").toLowerCase();
     const taskIdFromTool = tool ? byTool.get(tool)?.id : null;
-    const taskId = s.taskId || taskIdFromTool || null;
-    const task = taskId ? byTaskId.get(taskId) : null;
+    let taskId = s.taskId || taskIdFromTool || null;
+    let task = taskId ? byTaskId.get(taskId) : null;
+
+    // If model returned generic labels, map them to supported tools.
+    if (!task) {
+      const inferred = inferSupportedTaskId(s.label, text);
+      if (inferred) {
+        taskId = inferred;
+        task = byTaskId.get(inferred) ?? null;
+      }
+    }
 
     const missing = Boolean(s.missing) || !task;
     const price = task ? Number(task.price_usdc) : 0;
-    const label = s.label || task?.title || (tool ? tool : "Unknown tool");
+    // If supported, always use canonical label from DB (prevents generic labels in UI).
+    const label = task ? String(task.title) : s.label || (tool ? tool : "Unknown tool");
 
     return {
       taskId: task?.id ?? null,

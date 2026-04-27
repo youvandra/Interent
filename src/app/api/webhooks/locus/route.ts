@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   const signature = req.headers.get("x-signature-256") || "";
   const sessionIdHeader = req.headers.get("x-session-id") || "";
 
-  // Payload minimal yang kita butuhin:
+  // Minimal payload shape we expect:
   // { event: "checkout.session.paid", data: { sessionId, paymentTxHash, paidAt, metadata } }
   let parsed: any = null;
   try {
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   if (jobErr) return NextResponse.json({ error: jobErr.message }, { status: 500 });
   if (!job) return NextResponse.json({ error: "Unknown sessionId" }, { status: 404 });
 
-  // Verify signature (kalau kita punya webhook secret dari create session)
+  // Verify signature (if we have a webhook secret from checkout session creation)
   if (job.webhook_secret) {
     const expected = computeHmacSha256(raw, job.webhook_secret);
     if (!signature || !safeEqual(signature, expected)) {
@@ -220,6 +220,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  // Unknown events: ack biar nggak retry terus
+  // Unknown events: ack so the sender won't keep retrying
   return NextResponse.json({ ok: true, ignored: true });
 }

@@ -1,5 +1,5 @@
 -- Interent (MVP) — Pay-to-run tasks via Locus Checkout + Locus Wrapped APIs
--- Jalankan ini di Supabase SQL Editor.
+-- Run this in the Supabase SQL Editor.
 
 -- 1) Task catalog
 create table if not exists public.tasks (
@@ -7,12 +7,12 @@ create table if not exists public.tasks (
   title text not null,
   description text not null,
   price_usdc numeric(12,2) not null check (price_usdc > 0),
-  provider text not null,  -- locus wrapped provider slug (mis. deepl, mathpix)
-  endpoint text not null,  -- locus wrapped endpoint (mis. translate, process-image)
+  provider text not null,  -- Locus wrapped provider slug (e.g., deepl, mathpix)
+  endpoint text not null,  -- Locus wrapped endpoint (e.g., translate, process-image)
   created_at timestamptz not null default now()
 );
 
--- 2) Jobs (dibuat sebelum bayar; dieksekusi setelah PAID)
+-- 2) Jobs (created before payment; executed after PAID)
 create table if not exists public.jobs (
   id uuid primary key default gen_random_uuid(),
   buyer_id text not null,
@@ -23,7 +23,7 @@ create table if not exists public.jobs (
   result_json jsonb,
   error_message text,
 
-  job_token_hash text not null, -- sha256 token; token plaintext hanya dikasih sekali ke buyer
+  job_token_hash text not null, -- sha256 token; plaintext token is returned only once to the buyer
 
   -- Locus checkout linkage
   session_id uuid,
@@ -41,7 +41,7 @@ create index if not exists jobs_task_id_idx on public.jobs(task_id);
 create index if not exists jobs_status_idx on public.jobs(status);
 create index if not exists jobs_session_id_idx on public.jobs(session_id);
 
--- Seed contoh tasks
+-- Seed example tasks
 insert into public.tasks (id, title, description, price_usdc, provider, endpoint)
 values
   -- Workflow meta-task (used to charge and run multi-step toolchains)

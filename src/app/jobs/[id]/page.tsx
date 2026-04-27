@@ -106,13 +106,13 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
                 </Button>
               </div>
               <div className="text-xs text-[--color-muted]">
-                Token ini cuma disimpan di browser kamu. Kalau hilang, job tetap jalan tapi kamu
-                nggak bisa ambil hasil.
+                This token is stored only in your browser. If you lose it, the job will still run,
+                but you won’t be able to fetch the result.
               </div>
             </div>
 
-            <Link href="/marketplace">
-              <Button className="w-full">Back to marketplace</Button>
+            <Link href="/provider">
+              <Button className="w-full">Back to providers</Button>
             </Link>
           </CardContent>
         </Card>
@@ -123,7 +123,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
           <CardHeader>
             <CardTitle>Status</CardTitle>
             <CardDescription>
-              {status ? `Task: ${status.taskId}` : "Masukin token untuk mulai polling."}
+              {status ? `Task: ${status.taskId}` : "Enter a token to start polling."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -143,7 +143,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
                   <div className="mt-2 text-xs text-red-700">{status.error}</div>
                 )}
                 <div className="mt-2 text-xs text-[--color-muted]">
-                  Poll tiap ~2.5 detik. Normalnya selesai cepat untuk task kecil.
+                  Polls every ~2.5 seconds. Small tasks usually finish quickly.
                 </div>
               </div>
             )}
@@ -162,4 +162,3 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
     </div>
   );
 }
-

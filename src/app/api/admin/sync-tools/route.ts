@@ -48,7 +48,7 @@ const PROVIDERS = [
 
 function requireAdmin(req: Request) {
   const expected = process.env.ADMIN_SECRET;
-  if (!expected) return { ok: false as const, error: "ADMIN_SECRET belum di-set" };
+  if (!expected) return { ok: false as const, error: "ADMIN_SECRET is not set" };
   const got = req.headers.get("x-admin-secret") || "";
   if (!got || got !== expected) return { ok: false as const, error: "Unauthorized" };
   return { ok: true as const };

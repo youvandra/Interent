@@ -99,7 +99,7 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
         input = {};
       }
     } catch {
-      setError("Input JSON tidak valid");
+      setError("Invalid JSON input");
       return;
     }
 
@@ -113,8 +113,8 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
       setError(json?.error || "Failed to create job");
       return;
     }
-    // `@withlocus/checkout-react` defaultnya pakai https://checkout.paywithlocus.com
-    // tapi di beta kadang checkout host-nya beda. Jadi kita pakai `checkoutUrl` dari API response.
+    // `@withlocus/checkout-react` may default to a checkout host that differs per environment.
+    // Use `checkoutUrl` returned by the API response when available.
     const checkoutUrl = json?.checkoutUrl ?? null;
     const sessionId =
       json?.sessionId ??
@@ -129,7 +129,7 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
       sessionId,
       checkoutUrl,
     });
-    // simpan token lokal supaya /jobs bisa akses tanpa querystring
+    // Store the token locally so /jobs can access it without query params.
     window.localStorage.setItem(`interent_job_token_${json.jobId}`, json.jobToken);
   }
 
@@ -140,7 +140,7 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
     if (taskId === "firecrawl_scrape") return !!url.trim();
     if (taskId === "exa_search") return !!query.trim();
 
-    // Task lain: user isi params JSON (kalau kosong, kita allow tapi kemungkinan gagal di wrapped API)
+    // Other tasks: user provides JSON params. If empty, we allow it but it may fail on the wrapped API.
     return !!rawJson.trim();
   })();
 
@@ -154,7 +154,7 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
                 <CardTitle>Run task</CardTitle>
                 <CardDescription>Pay once, Interent executes via Locus Wrapped APIs.</CardDescription>
               </div>
-              <Link href="/marketplace">
+              <Link href="/provider">
                 <Button variant="ghost">Back</Button>
               </Link>
             </div>
@@ -193,7 +193,7 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
                   onChange={(e) => setImageUrl(e.target.value)}
                 />
                 <div className="text-xs text-[--color-muted]">
-                  MVP: pakai URL publik (belum upload file).
+                  MVP: use a publicly accessible URL (no file upload yet).
                 </div>
               </div>
             )}
@@ -203,7 +203,7 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
                 <div className="text-sm font-medium">Text</div>
                 <Textarea
                   rows={6}
-                  placeholder="Paste text yang mau ditranslate…"
+                  placeholder="Paste the text you want to translate…"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                 />
@@ -233,12 +233,12 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
                 <div className="text-sm font-medium">Prompt</div>
                 <Textarea
                   rows={6}
-                  placeholder="Tulis prompt untuk chat…"
+                  placeholder="Write a chat prompt…"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                 />
                 <div className="text-xs text-[--color-muted]">
-                  Default model dipilih otomatis (OpenAI: gpt-4o-mini, Gemini: gemini-2.5-flash).
+                  The default model is selected automatically (OpenAI: gpt-4o-mini, Gemini: gemini-2.5-flash).
                 </div>
               </div>
             )}
@@ -252,7 +252,7 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
                   onChange={(e) => setUrl(e.target.value)}
                 />
                 <div className="text-xs text-[--color-muted]">
-                  Akan return output markdown (formats: [\"markdown\"]).
+                  Returns markdown output (formats: ["markdown"]).
                 </div>
               </div>
             )}
@@ -261,7 +261,7 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
               <div className="space-y-2">
                 <div className="text-sm font-medium">Query</div>
                 <Input
-                  placeholder="mis. best OCR API pricing"
+                  placeholder="e.g. best OCR API pricing"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />

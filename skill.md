@@ -1,35 +1,35 @@
 ---
 name: interent
 version: 0.1.0
-description: Interent adalah platform pay-to-run tasks untuk AI agents. Buyer agent bayar via Locus Checkout (USDC), lalu Interent mengeksekusi task via Locus Wrapped APIs dan mengembalikan hasilnya.
+description: Interent is a pay-to-run tasks platform for AI agents. A buyer agent pays via Locus Checkout (USDC), then Interent executes tasks via Locus Wrapped APIs and returns the results.
 homepage: https://github.com/youvandra/Interent
 metadata:
   category: marketplace
   auth: job_token
 ---
 
-# Interent — Skill (untuk Buyer Agent)
+# Interent — Skill (for Buyer Agents)
 
-Tujuan skill ini: bikin agent milik buyer bisa **membayar dan menjalankan task** (OCR, translation, dll) secara aman:
+This skill enables a buyer agent to **pay and run tasks** (OCR, translation, etc.) securely:
 
-- Pembayaran: **Locus Checkout** (USDC on Base)
-- Eksekusi: **Locus Wrapped APIs** (Interent yang bayar per-call dari wallet Interent)
-- Akses hasil: **job token** (token plaintext hanya diberikan sekali)
+- Payment: **Locus Checkout** (USDC on Base)
+- Execution: **Locus Wrapped APIs** (Interent pays per-call from the Interent wallet)
+- Result access: **job token** (the plaintext token is only returned once)
 
-## Konsep singkat
+## Quick concepts
 
-- **Task** = unit kerja yang bisa dibeli (mis. OCR image, translate text).
-- **Job** = instansi task yang dibuat buyer. Job punya status dan hasil.
-- **Job token** = token akses untuk polling status & mengambil hasil job.
+- **Task** = purchasable unit of work (e.g., OCR an image, translate text).
+- **Job** = an instance of a task created by a buyer. A job has a status and a result.
+- **Job token** = access token used to poll status and fetch a job result.
 
 ## Environment & Base URL
 
-Set `INTERENT_BASE_URL` ke domain Interent kamu:
+Set `INTERENT_BASE_URL` to your Interent domain:
 
 - Local: `http://localhost:3000`
-- Deploy: `https://<domain-kamu>.vercel.app`
+- Deploy: `https://<your-domain>.vercel.app`
 
-> Penting: untuk webhook Locus, Interent harus punya URL publik (deploy / tunnel https).
+> Important: for Locus webhooks, Interent must be publicly reachable (deploy / https tunnel).
 
 ---
 
@@ -58,7 +58,7 @@ Body:
   "taskId": "translate_deepl",
   "buyerId": "uuid-buyer-agent",
   "input": {
-    "text": "Tolong translate ini ke English",
+    "text": "Please translate this to English",
     "targetLang": "EN"
   }
 }
@@ -74,18 +74,18 @@ Response:
 }
 ```
 
-`buyerId` itu ID milik buyer agent (generate UUID dan simpan).
+`buyerId` is the buyer agent's ID (generate a UUID and store it).
 
 ---
 
-# Capability 3 — Bayar checkout session (via Locus)
+# Capability 3 — Pay the checkout session (via Locus)
 
-Gunakan Locus API (butuh `claw_...` API key di environment beta/production yang sesuai).
+Use the Locus API (requires a `claw_...` API key in the appropriate environment).
 
-Flow minimal (agent):
+Minimal flow (agent):
 1) Preflight
 2) Pay
-3) Poll sampai `CONFIRMED`
+3) Poll until `CONFIRMED`
 
 Contoh (Beta):
 ```bash
@@ -132,8 +132,8 @@ Response:
 
 ---
 
-## Security rules (wajib)
+## Security rules (required)
 
-- Jangan pernah leak job token atau API key Locus ke pihak lain.
-- Jangan coba bypass pembayaran: job tidak akan dieksekusi sebelum `checkout.session.paid`.
-- Job token plaintext hanya muncul sekali (simpan dengan aman).
+- Never leak the job token or Locus API key to any third party.
+- Do not bypass payment: the job will not execute until `checkout.session.paid`.
+- The plaintext job token is returned only once (store it securely).

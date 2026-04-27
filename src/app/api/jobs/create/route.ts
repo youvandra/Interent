@@ -44,14 +44,14 @@ export async function POST(req: Request) {
   if (!jobId) return NextResponse.json({ error: "Failed to create job" }, { status: 500 });
 
   const appUrl = getAppUrl();
-  // Locus checkout session creation sering gagal kalau URL bukan HTTPS publik.
-  // Kalau kamu lagi local dev, deploy ke Vercel atau pakai tunnel (ngrok/cloudflared)
-  // dan set NEXT_PUBLIC_APP_URL ke URL https tersebut.
+  // Locus checkout session creation often fails if the URL isn't publicly reachable over HTTPS.
+  // If you're doing local dev, deploy to Vercel or use a tunnel (ngrok/cloudflared),
+  // and set NEXT_PUBLIC_APP_URL to that public https URL.
   if (!/^https:\/\//i.test(appUrl)) {
     return NextResponse.json(
       {
         error:
-          "NEXT_PUBLIC_APP_URL harus HTTPS (public) untuk bikin checkout session. Deploy ke Vercel atau pakai tunnel, lalu set NEXT_PUBLIC_APP_URL ke URL https itu.",
+          "NEXT_PUBLIC_APP_URL must be a public HTTPS URL to create a checkout session. Deploy to Vercel or use a tunnel, then set NEXT_PUBLIC_APP_URL to that https URL.",
         appUrl,
       },
       { status: 400 },
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
   const locusKey = getLocusApiKey();
   const webhookUrl = `${appUrl}/api/webhooks/locus`;
 
-  // Guard: wallet deploying -> create session sering fail di beta
+  // Guard: create-session can fail while the wallet is deploying.
   try {
     const statusResp = await fetch(`${locusBase}/status`, {
       headers: { Authorization: `Bearer ${locusKey}` },
@@ -70,12 +70,12 @@ export async function POST(req: Request) {
     const statusJson = (await statusResp.json().catch(() => null)) as any;
     const walletStatus =
       statusJson?.data?.walletStatus ?? statusJson?.walletStatus ?? null;
-    // BUGFIX: jangan pakai `includes("deploy")` karena "deployed" juga match.
-    // Block hanya kalau memang masih "deploying".
+    // BUGFIX: don't use `includes("deploy")` because it also matches "deployed".
+    // Only block if it's exactly "deploying".
     const ws = walletStatus ? String(walletStatus).toLowerCase() : "";
     if (ws === "deploying") {
       return NextResponse.json(
-        { error: "Locus wallet masih deploying. Coba lagi beberapa menit.", walletStatus },
+        { error: "Locus wallet is still deploying. Please try again in a few minutes.", walletStatus },
         { status: 503 },
       );
     }
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
         details: json,
         debug: {
           locusBase,
-          // jangan log api key
+          // do not log the API key
           webhookUrl,
           successUrl: payload.successUrl,
           cancelUrl: payload.cancelUrl,

@@ -5,7 +5,7 @@ export async function GET() {
   const sb = supabasePublic();
   if (!sb) {
     return NextResponse.json(
-      { error: "Supabase env belum di-set" },
+      { error: "Supabase env vars are not set" },
       { status: 500 },
     );
   }
@@ -24,4 +24,3 @@ export async function GET() {
     })),
   });
 }
-

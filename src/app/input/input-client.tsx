@@ -123,7 +123,7 @@ export function InputClient() {
             <CardTitle>Describe your task</CardTitle>
             <CardDescription>
               We’ll route it into a toolchain. Example: “Extract the article body from a URL,
-              translate to Indonesian, then generate audio.”
+              translate to Spanish, then generate audio.”
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

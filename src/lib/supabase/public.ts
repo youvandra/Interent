@@ -4,8 +4,8 @@ export function supabasePublic() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // Jangan throw biar build/dev awal nggak langsung fail.
-  // Halaman akan tampilkan instruksi setup kalau env belum ada.
+  // Don't throw so the initial dev/build doesn't fail immediately.
+  // The UI will show setup instructions if env vars are missing.
   if (!url || !anon) return null;
 
   return createClient(url, anon, {

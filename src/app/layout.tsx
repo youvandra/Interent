@@ -43,9 +43,9 @@ export default function RootLayout({
             <div className="hidden items-center gap-2 sm:flex">
               <a
                 className="px-3 py-2 text-sm text-[--color-muted] hover:text-[--color-text]"
-                href="/marketplace"
+                href="/provider"
               >
-                Tools
+                Provider
               </a>
               <a href="/skill">
                 <Button size="sm">Agent guide</Button>
@@ -60,8 +60,8 @@ export default function RootLayout({
                 </Button>
               </summary>
               <div className="absolute right-0 mt-2 w-56 border border-[--color-border] bg-white p-2 shadow-[0_12px_48px_rgba(16,24,40,0.12)]">
-                <a className="block px-3 py-2 text-sm hover:bg-[--color-surface]" href="/marketplace">
-                  Tools
+                <a className="block px-3 py-2 text-sm hover:bg-[--color-surface]" href="/provider">
+                  Provider
                 </a>
                 <div className="mt-2 px-3 pb-2">
                   <a href="/skill" className="block">
