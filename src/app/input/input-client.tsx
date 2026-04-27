@@ -103,6 +103,7 @@ export function InputClient() {
     sessionId: string;
     checkoutUrl?: string | null;
   } | null>(null);
+  const [testPaying, setTestPaying] = useState(false);
 
   async function generatePlan(text: string) {
     setError(null);
@@ -199,6 +200,44 @@ export function InputClient() {
     }
   }
 
+  async function testPay() {
+    if (!plan) return;
+    setError(null);
+    setTestPaying(true);
+    try {
+      const resp = await fetch("/api/workflows/testpay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          buyerId,
+          prompt,
+          steps: plan.steps.map((s) => ({
+            taskId: s.taskId,
+            label: s.label,
+            priceUsdc: s.priceUsdc,
+            missing: s.missing,
+          })),
+          expectedOutputs: selectedOutputs,
+          pricing: {
+            subtotalToolsUsdc: plan.subtotalToolsUsdc,
+            serviceFeeUsdc: plan.serviceFeeUsdc,
+            serviceFeeRate: plan.serviceFeeRate,
+            totalPriceUsdc: plan.totalPriceUsdc,
+          },
+        }),
+      });
+      const json = await resp.json().catch(() => null);
+      if (!resp.ok) throw new Error(json?.error || "Failed to create test job");
+
+      window.localStorage.setItem(`interent_job_token_${json.jobId}`, json.jobToken);
+      window.location.href = `/jobs/${json.jobId}`;
+    } catch (e: any) {
+      setError(String(e?.message || e));
+    } finally {
+      setTestPaying(false);
+    }
+  }
+
   function recomputeTotals(nextSteps: PlannedStep[]) {
     const subtotalMicro = nextSteps.reduce(
       (sum, s) => sum + (s.missing ? 0 : toMicroUsdc(s.priceUsdc)),
@@ -252,8 +291,8 @@ export function InputClient() {
           <CardHeader>
             <CardTitle>Describe your task</CardTitle>
             <CardDescription>
-              We’ll route it into a toolchain. Example: “Extract the article body from a URL,
-              translate to Spanish, then generate audio.”
+              Example: “I want to scrape data about disease outbreaks in 2025, 
+              translate to Spanish, then generate a clean dashboard and a report”
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -455,19 +494,40 @@ export function InputClient() {
                 </div>
 
                 {!checkout && (
-                  <Button
-                    className="w-full"
-                    onClick={createWorkflowCheckout}
-                    disabled={planning || creatingCheckout || plan.steps.some((s) => s.missing)}
-                  >
-                    {creatingCheckout ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" /> Loading checkout…
-                      </>
-                    ) : (
-                      "Pay with Locus"
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-[4]"
+                      onClick={createWorkflowCheckout}
+                      disabled={
+                        planning ||
+                        creatingCheckout ||
+                        testPaying ||
+                        plan.steps.some((s) => s.missing)
+                      }
+                    >
+                      {creatingCheckout ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" /> Loading checkout…
+                        </>
+                      ) : (
+                        "Pay with Locus"
+                      )}
+                    </Button>
+
+                    <Button
+                      className="flex-[1]"
+                      variant="secondary"
+                      onClick={testPay}
+                      disabled={planning || creatingCheckout || testPaying}
+                      aria-label="Test Pay (mock result)"
+                    >
+                      {testPaying ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Test Pay"
+                      )}
+                    </Button>
+                  </div>
                 )}
 
                 {checkout && (
