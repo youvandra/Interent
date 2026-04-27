@@ -5,8 +5,10 @@ import { supabaseServer } from "@/lib/supabase/server";
 type Body = { text?: string };
 
 type PlanStep = {
-  taskId: string;
+  taskId?: string;
   label: string;
+  tool?: string; // provider/endpoint, e.g. "firecrawl/scrape"
+  missing?: boolean;
   params?: Record<string, unknown>;
 };
 
@@ -17,10 +19,10 @@ function fallbackPlan(text: string): PlanStep[] {
   const wantsTts = /audio|tts|voice|speech|mp3|wav|suara/.test(t);
 
   const steps: PlanStep[] = [];
-  if (wantsScrape) steps.push({ taskId: "firecrawl_scrape", label: "Web Scrape (Firecrawl)" });
-  if (wantsTranslate) steps.push({ taskId: "translate_deepl", label: "Translate (DeepL)" });
-  if (wantsTts) steps.push({ taskId: "openai_tts", label: "Text-to-Speech (OpenAI)" });
-  if (steps.length === 0) steps.push({ taskId: "openai_chat", label: "LLM Chat (OpenAI)" });
+  if (wantsScrape) steps.push({ taskId: "firecrawl_scrape", label: "Web Scrape (Firecrawl)", tool: "firecrawl/scrape" });
+  if (wantsTranslate) steps.push({ taskId: "translate_deepl", label: "Translate (DeepL)", tool: "deepl/translate" });
+  if (wantsTts) steps.push({ taskId: "openai_tts", label: "Text-to-Speech (OpenAI)", tool: "openai/tts" });
+  if (steps.length === 0) steps.push({ taskId: "openai_chat", label: "LLM Chat (OpenAI)", tool: "openai/chat" });
   return steps;
 }
 
@@ -30,25 +32,78 @@ export async function POST(req: Request) {
 
   const sb = supabaseServer();
 
-  // Keep tool catalog minimal for MVP demo.
-  const toolCatalog = [
-    { taskId: "firecrawl_scrape", label: "Web Scrape (Firecrawl)" },
-    { taskId: "translate_deepl", label: "Translate (DeepL)" },
-    { taskId: "openai_tts", label: "Text-to-Speech (OpenAI)" },
-    { taskId: "ocr_mathpix", label: "OCR (Mathpix)" },
-    { taskId: "openai_chat", label: "LLM Chat (OpenAI)" },
+  // Use the DB as the source of truth for supported tools.
+  const { data: supported } = await sb
+    .from("tasks")
+    .select("id, title, provider, endpoint, price_usdc")
+    .neq("id", "workflow");
+
+  const supportedTools = (supported ?? []).map((t: any) => ({
+    taskId: t.id,
+    label: t.title,
+    tool: `${t.provider}/${t.endpoint}`,
+  }));
+
+  // Provider list (for missing tool display). From Locus docs.
+  const providerSlugs = [
+    "openai",
+    "gemini",
+    "firecrawl",
+    "exa",
+    "clado",
+    "apollo",
+    "browser-use",
+    "x",
+    "fal",
+    "abstract-api",
+    "anthropic",
+    "deepseek",
+    "grok",
+    "perplexity",
+    "replicate",
+    "stability-ai",
+    "suno",
+    "mathpix",
+    "deepgram",
+    "alpha-vantage",
+    "sec-edgar",
+    "rentcast",
+    "openweather",
+    "diffbot",
+    "builtwith",
+    "hunter",
+    "ipinfo",
+    "whitepages",
+    "ofac",
+    "judge0",
+    "mapbox",
+    "brave",
+    "coingecko",
+    "deepl",
+    "groq",
+    "mistral",
+    "screenshotone",
+    "tavily",
+    "virustotal",
+    "wolframalpha",
+    "billboard",
   ];
 
   const system = [
     "You are a task router for Interent, a pay-per-use AI microservices marketplace.",
-    "Given a user's natural-language request, output a minimal toolchain using ONLY the tools listed.",
+    "Given a user's natural-language request, output a minimal toolchain.",
     "Return STRICT JSON (no markdown) with this shape:",
     "{",
-    '  "steps": [ { "taskId": "<one of the allowed taskIds>", "label": "<short human label>" } ],',
+    '  "steps": [',
+    '    { "taskId": "<supported taskId OR empty>", "tool": "<provider/endpoint>", "label": "<human label>", "missing": <true|false> }',
+    "  ],",
     '  "notes": "<one-sentence explanation>"',
     "}",
-    "Allowed tools:",
-    JSON.stringify(toolCatalog),
+    "Supported tools (use these when possible):",
+    JSON.stringify(supportedTools),
+    "If a required step is not supported yet, still include it with missing=true and a best-guess tool in provider/endpoint format.",
+    "Allowed provider slugs (for tool field):",
+    JSON.stringify(providerSlugs),
     "Rules:",
     "- Prefer the shortest chain that satisfies the request.",
     "- If the user mentions a URL/link and extracting content, include firecrawl_scrape.",
@@ -92,25 +147,36 @@ export async function POST(req: Request) {
     notes = "Fallback planner was used.";
   }
 
-  // Normalize and price.
-  const taskIds = Array.from(new Set((steps ?? []).map((s) => s.taskId))).filter(Boolean);
-  const { data: tasks } = await sb
-    .from("tasks")
-    .select("id, title, price_usdc")
-    .in("id", taskIds);
-  const priceMap = new Map<string, number>((tasks ?? []).map((t: any) => [t.id, Number(t.price_usdc)]));
+  // Normalize, detect missing, and price supported steps.
+  const byTaskId = new Map<string, any>((supported ?? []).map((t: any) => [t.id, t]));
+  const byTool = new Map<string, any>(
+    (supported ?? []).map((t: any) => [`${t.provider}/${t.endpoint}`.toLowerCase(), t]),
+  );
 
-  const pricedSteps = (steps ?? []).map((s) => {
-    const price = priceMap.get(s.taskId) ?? 0.01;
-    return { ...s, priceUsdc: price.toFixed(2) };
+  const normalizedSteps = (steps ?? []).map((s) => {
+    const tool = (s.tool || "").toLowerCase();
+    const taskIdFromTool = tool ? byTool.get(tool)?.id : null;
+    const taskId = s.taskId || taskIdFromTool || null;
+    const task = taskId ? byTaskId.get(taskId) : null;
+
+    const missing = Boolean(s.missing) || !task;
+    const price = task ? Number(task.price_usdc) : 0;
+    const label = s.label || task?.title || (tool ? tool : "Unknown tool");
+
+    return {
+      taskId: task?.id ?? null,
+      tool: tool || (task ? `${task.provider}/${task.endpoint}` : null),
+      label,
+      missing,
+      priceUsdc: price.toFixed(2),
+    };
   });
 
-  const total = pricedSteps.reduce((sum, s) => sum + Number(s.priceUsdc), 0);
+  const total = normalizedSteps.reduce((sum, s) => sum + (s.missing ? 0 : Number(s.priceUsdc)), 0);
 
   return NextResponse.json({
-    steps: pricedSteps,
+    steps: normalizedSteps,
     totalPriceUsdc: total.toFixed(2),
     notes,
   });
 }
-

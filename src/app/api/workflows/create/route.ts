@@ -33,6 +33,18 @@ export async function POST(req: Request) {
     );
   }
 
+  // Validate that every step refers to a supported taskId
+  const stepIds = Array.from(new Set(steps.map((s) => s.taskId))).filter(Boolean);
+  const { data: stepTasks } = await sb.from("tasks").select("id").in("id", stepIds);
+  const stepSet = new Set((stepTasks ?? []).map((t: any) => t.id));
+  const missing = stepIds.filter((id) => !stepSet.has(id));
+  if (missing.length) {
+    return NextResponse.json(
+      { error: `Unsupported tools in workflow: ${missing.join(", ")}` },
+      { status: 400 },
+    );
+  }
+
   const jobToken = randomToken("job_live_");
   const jobTokenHash = sha256Hex(jobToken);
 
@@ -122,4 +134,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ jobId, jobToken, sessionId, checkoutUrl });
 }
-

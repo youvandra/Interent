@@ -10,8 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowRight, Loader2 } from "lucide-react";
 
 type PlannedStep = {
-  taskId: string;
+  taskId: string | null;
   label: string;
+  tool?: string | null;
+  missing?: boolean;
   priceUsdc: string;
 };
 
@@ -58,6 +60,13 @@ export function InputClient() {
 
   async function createWorkflowCheckout() {
     if (!plan) return;
+    const missing = plan.steps.filter((s) => s.missing);
+    if (missing.length) {
+      setError(
+        `Missing tools: ${missing.map((m) => m.label).join(", ")}. Please edit the request or choose supported tools.`,
+      );
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
@@ -67,7 +76,7 @@ export function InputClient() {
         body: JSON.stringify({
           buyerId,
           prompt,
-          steps: plan.steps,
+          steps: plan.steps.map((s) => ({ taskId: s.taskId!, label: s.label, priceUsdc: s.priceUsdc })),
           totalPriceUsdc: plan.totalPriceUsdc,
         }),
       });
@@ -161,9 +170,17 @@ export function InputClient() {
                   <div className="font-semibold">Suggested flow</div>
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-[--color-muted]">
                     {plan.steps.map((s, idx) => (
-                      <div key={s.taskId} className="flex items-center gap-2">
-                        <span className="border border-[--color-border-strong] bg-white px-2 py-1 text-xs font-semibold text-[--color-text]">
+                      <div key={`${s.taskId ?? "missing"}-${idx}`} className="flex items-center gap-2">
+                        <span
+                          className={[
+                            "border px-2 py-1 text-xs font-semibold",
+                            s.missing
+                              ? "border-red-400 bg-red-50 text-red-700"
+                              : "border-[--color-border-strong] bg-white text-[--color-text]",
+                          ].join(" ")}
+                        >
                           {s.label}
+                          {s.missing ? " (missing)" : ""}
                         </span>
                         {idx < plan.steps.length - 1 ? (
                           <span className="text-xs text-[--color-muted]">→</span>
@@ -180,9 +197,9 @@ export function InputClient() {
                   <div className="font-semibold">Price breakdown</div>
                   <div className="mt-2 space-y-1 text-[--color-muted]">
                     {plan.steps.map((s) => (
-                      <div key={s.taskId} className="flex items-center justify-between">
+                      <div key={`${s.taskId ?? s.label}`} className="flex items-center justify-between">
                         <span>{s.label}</span>
-                        <span>${s.priceUsdc}</span>
+                        <span>{s.missing ? "—" : `$${s.priceUsdc}`}</span>
                       </div>
                     ))}
                     <div className="mt-2 border-t border-[--color-border] pt-2 flex items-center justify-between font-semibold text-[--color-text]">
@@ -193,7 +210,11 @@ export function InputClient() {
                 </div>
 
                 {!checkout && (
-                  <Button className="w-full" onClick={createWorkflowCheckout} disabled={loading}>
+                  <Button
+                    className="w-full"
+                    onClick={createWorkflowCheckout}
+                    disabled={loading || plan.steps.some((s) => s.missing)}
+                  >
                     Pay with Locus
                   </Button>
                 )}
