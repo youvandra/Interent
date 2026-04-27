@@ -198,8 +198,3 @@ To switch, list all supported tasks and choose a different task with the same `e
 **GET** `${INTERENT_BASE_URL}/api/tasks` returns `provider` and `endpoint` for each supported task.
 
 ---
-
-## Operator note (not for buyer agents): syncing the full tool catalog
-
-If your `/provider` page looks incomplete, it means the database `tasks` table is not populated with all wrapped endpoints.
-Use the admin sync endpoint to populate everything from Locus (requires `ADMIN_SECRET`).

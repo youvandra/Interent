@@ -7,7 +7,8 @@ import { getOrCreateBuyerId } from "@/lib/buyer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowRight, Check, Loader2 } from "lucide-react";
+import { SquareSpinner } from "@/components/ui/square-spinner";
+import { ArrowRight, Check } from "lucide-react";
 
 type PlannedStep = {
   taskId: string | null;
@@ -346,7 +347,7 @@ export function InputClient() {
             >
               {planning ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Planning…
+                  <SquareSpinner /> Planning…
                 </>
               ) : (
                 <>
@@ -452,33 +453,37 @@ export function InputClient() {
                           onClick={() => toggleOutput(o.id)}
                           aria-pressed={checked}
                           className={[
-                            "text-left border p-3 transition",
+                            "relative text-left border p-3 pr-10 transition",
                             checked
                               ? "border-[--color-border-strong] bg-[--color-primary-soft]"
                               : "border-[--color-border] bg-white hover:bg-[--color-surface]",
                           ].join(" ")}
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="text-sm font-semibold text-[--color-text]">
-                                {o.label}
-                              </div>
-                              <div className="mt-1 text-xs text-[--color-muted]">
-                                {o.description}
-                              </div>
+                          <div>
+                            <div className="text-sm font-semibold text-[--color-text]">
+                              {o.label}
                             </div>
-                            <span
-                              aria-hidden="true"
-                              className={[
-                                "mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
-                                checked
-                                  ? "border-[--color-border-strong] bg-white text-[--color-primary]"
-                                  : "border-[--color-border-strong] bg-transparent text-[--color-muted]",
-                              ].join(" ")}
-                            >
-                              <Check className={["h-3.5 w-3.5", checked ? "opacity-100" : "opacity-0"].join(" ")} />
-                            </span>
+                            <div className="mt-1 text-xs text-[--color-muted]">
+                              {o.description}
+                            </div>
                           </div>
+
+                          <span
+                            aria-hidden="true"
+                            className={[
+                              "absolute right-3 top-3 inline-flex h-5 w-5 items-center justify-center rounded-full border",
+                              checked
+                                ? "border-[--color-border-strong] bg-white text-[--color-primary]"
+                                : "border-[--color-border-strong] bg-transparent text-[--color-muted]",
+                            ].join(" ")}
+                          >
+                            <Check
+                              className={[
+                                "h-3.5 w-3.5",
+                                checked ? "opacity-100" : "opacity-0",
+                              ].join(" ")}
+                            />
+                          </span>
                         </button>
                       );
                     })}
@@ -535,10 +540,18 @@ export function InputClient() {
                     >
                       {creatingCheckout ? (
                         <>
-                          <Loader2 className="h-4 w-4 animate-spin" /> Loading checkout…
+                          <SquareSpinner /> Loading checkout…
                         </>
                       ) : (
-                        "Pay with Locus"
+                        <>
+                          <img
+                            src="/paywithlocus.svg"
+                            alt=""
+                            aria-hidden="true"
+                            className="h-4 w-4"
+                          />
+                          Pay with Locus
+                        </>
                       )}
                     </Button>
 
@@ -550,7 +563,7 @@ export function InputClient() {
                       aria-label="Test Pay (mock result)"
                     >
                       {testPaying ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <SquareSpinner />
                       ) : (
                         "Test Pay"
                       )}

@@ -6,7 +6,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, RefreshCw } from "lucide-react";
+import { SquareSpinner } from "@/components/ui/square-spinner";
+import { RefreshCw } from "lucide-react";
 
 type JobStatus = {
   jobId: string;
@@ -134,7 +135,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
                 title="Refresh"
               >
                 {manualLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <SquareSpinner />
                 ) : (
                   <RefreshCw className="h-4 w-4" />
                 )}

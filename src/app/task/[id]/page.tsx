@@ -10,7 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { SquareSpinner } from "@/components/ui/square-spinner";
+import { ArrowRight } from "lucide-react";
 
 type Task = {
   id: string;
@@ -162,7 +163,7 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
           <CardContent className="space-y-4">
             {loading && (
               <div className="flex items-center gap-2 text-sm text-[--color-muted]">
-                <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+                <SquareSpinner /> Loading…
               </div>
             )}
             {error && (

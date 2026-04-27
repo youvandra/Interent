@@ -4,6 +4,7 @@ import "./globals.css";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 import { Logo } from "@/components/site/logo";
+import { GeometricBackground } from "@/components/site/geometric-bg";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -82,7 +83,8 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-white text-[--color-text]">
+      <body className="relative min-h-full bg-white text-[--color-text]">
+        <GeometricBackground />
         <header className="sticky top-0 z-10 w-full border-b border-[--color-border] bg-white/90 backdrop-blur">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
             {/* Brand */}
