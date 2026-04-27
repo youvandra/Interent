@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { supabasePublic } from "@/lib/supabase/public";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight } from "lucide-react";
 
@@ -40,18 +38,20 @@ export default async function MarketplacePage() {
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span>{t.title}</span>
-              <Badge className="border-[--color-primary]/20 bg-[--color-primary-soft] text-[--color-primary]">
+              <span className="border border-[--color-border-strong] bg-[--color-primary-soft] px-2 py-1 text-xs font-semibold text-[--color-primary]">
                 {Number(t.price_usdc).toFixed(2)} USDC
-              </Badge>
+              </span>
             </CardTitle>
             <CardDescription>{t.description}</CardDescription>
           </CardHeader>
           <CardContent className="flex items-center justify-between">
-            <div className="text-xs text-[--color-muted]">Task ID: {t.id}</div>
             <Link href={`/task/${t.id}`}>
-              <Button variant="secondary" className="group-hover:border-[--color-border-strong]">
-                Start <ArrowRight className="h-4 w-4" />
-              </Button>
+              <span
+                className="inline-flex items-center text-[--color-primary] opacity-80 transition group-hover:opacity-100"
+                aria-label={`Open ${t.title}`}
+              >
+                <ArrowRight className="h-5 w-5" />
+              </span>
             </Link>
           </CardContent>
         </Card>
