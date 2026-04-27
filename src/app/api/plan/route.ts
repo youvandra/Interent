@@ -201,15 +201,32 @@ export async function POST(req: Request) {
       tool: tool || (task ? `${task.provider}/${task.endpoint}` : null),
       label,
       missing,
-      priceUsdc: price.toFixed(2),
+      // keep precision for transparent totals (USDC has 6 decimals)
+      priceUsdc: price.toFixed(6),
     };
   });
 
-  const total = normalizedSteps.reduce((sum, s) => sum + (s.missing ? 0 : Number(s.priceUsdc)), 0);
+  // Use micro-USDC integer math to avoid floating drift.
+  const SCALE = 1_000_000;
+  const toMicro = (n: number) => Math.round(n * SCALE);
+  const fromMicro = (m: number) => (m / SCALE).toFixed(6);
+
+  const subtotalMicro = normalizedSteps.reduce(
+    (sum, s) => sum + (s.missing ? 0 : toMicro(Number(s.priceUsdc))),
+    0,
+  );
+
+  // Service fee: 5% of subtotal tools (MVP pricing rule).
+  const SERVICE_FEE_RATE = 0.05;
+  const serviceFeeMicro = Math.round(subtotalMicro * SERVICE_FEE_RATE);
+  const totalMicro = subtotalMicro + serviceFeeMicro;
 
   return NextResponse.json({
     steps: normalizedSteps,
-    totalPriceUsdc: total.toFixed(2),
+    subtotalToolsUsdc: fromMicro(subtotalMicro),
+    serviceFeeUsdc: fromMicro(serviceFeeMicro),
+    serviceFeeRate: SERVICE_FEE_RATE,
+    totalPriceUsdc: fromMicro(totalMicro),
     notes,
   });
 }

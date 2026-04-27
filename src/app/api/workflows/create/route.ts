@@ -85,7 +85,8 @@ export async function POST(req: Request) {
   const webhookUrl = `${appUrl}/api/webhooks/locus`;
 
   const payload = {
-    amount: total.toFixed(2),
+    // keep USDC precision (6 decimals) so UI total matches charged amount
+    amount: total.toFixed(6),
     description: `Interent workflow (${steps.length} steps)`,
     successUrl: `${appUrl}/jobs/${jobId}`,
     cancelUrl: `${appUrl}/input?text=${encodeURIComponent(prompt)}`,

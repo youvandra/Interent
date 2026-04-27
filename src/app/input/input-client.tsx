@@ -27,6 +27,9 @@ export function InputClient() {
   const [plannedPrompt, setPlannedPrompt] = useState<string | null>(null);
   const [plan, setPlan] = useState<{
     steps: PlannedStep[];
+    subtotalToolsUsdc?: string;
+    serviceFeeUsdc?: string;
+    serviceFeeRate?: number;
     totalPriceUsdc: string;
     notes?: string;
   } | null>(null);
@@ -211,9 +214,26 @@ export function InputClient() {
                         <span>{s.missing ? "—" : `$${s.priceUsdc}`}</span>
                       </div>
                     ))}
-                    <div className="mt-2 border-t border-[--color-border] pt-2 flex items-center justify-between font-semibold text-[--color-text]">
-                      <span>Total</span>
-                      <span>${plan.totalPriceUsdc}</span>
+                    <div className="mt-2 border-t border-[--color-border] pt-2 space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Subtotal (tools)</span>
+                        <span>${plan.subtotalToolsUsdc ?? plan.totalPriceUsdc}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span>
+                          Service fee{" "}
+                          {typeof plan.serviceFeeRate === "number"
+                            ? `(${Math.round(plan.serviceFeeRate * 100)}%)`
+                            : "(5%)"}
+                        </span>
+                        <span>
+                          ${plan.serviceFeeUsdc ?? "0.00"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between font-semibold text-[--color-text]">
+                        <span>Total</span>
+                        <span>${plan.totalPriceUsdc}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
