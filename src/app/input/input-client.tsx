@@ -17,6 +17,14 @@ type PlannedStep = {
   priceUsdc: string;
 };
 
+type TaskOption = {
+  id: string;
+  title: string;
+  provider: string;
+  endpoint: string;
+  priceUsdc: string;
+};
+
 function formatUsdc(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "0";
   const s = typeof value === "number" ? value.toString() : String(value);
@@ -25,12 +33,49 @@ function formatUsdc(value: string | number | null | undefined): string {
   return s.replace(/\.?0+$/, "");
 }
 
+function toMicroUsdc(value: string | number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  return Math.round(n * 1_000_000);
+}
+
+function fromMicroUsdc(micro: number): string {
+  return (micro / 1_000_000).toFixed(6);
+}
+
+function getCapability(step: PlannedStep): string | null {
+  const endpoint = (step.tool || "").split("/")[1]?.toLowerCase() || "";
+  const label = step.label.toLowerCase();
+
+  if (endpoint === "chat" || label.includes("llm")) return "llm_chat";
+  if (endpoint === "image-generate" || label.includes("image")) return "image_generate";
+  if (endpoint === "tts" || label.includes("speech") || label.includes("audio")) return "tts";
+  if (endpoint === "translate" || label.includes("translate")) return "translate";
+  if (endpoint === "search" || label.includes("search")) return "web_search";
+  if (endpoint === "extract" || label.includes("extract")) return "extract_data";
+  if (endpoint === "scrape" || label.includes("scrape")) return "scrape";
+
+  return null;
+}
+
+function capabilityMatch(cap: string, task: TaskOption) {
+  const ep = task.endpoint.toLowerCase();
+  if (cap === "llm_chat") return ep === "chat";
+  if (cap === "image_generate") return ep === "image-generate";
+  if (cap === "tts") return ep === "tts";
+  if (cap === "translate") return ep === "translate";
+  if (cap === "web_search") return ep === "search";
+  if (cap === "extract_data") return ep === "extract";
+  if (cap === "scrape") return ep === "scrape";
+  return false;
+}
+
 export function InputClient() {
   const searchParams = useSearchParams();
   const buyerId = useMemo(() => getOrCreateBuyerId(), []);
 
   const [prompt, setPrompt] = useState(searchParams.get("text") || "");
   const [planning, setPlanning] = useState(false);
+  const [taskOptions, setTaskOptions] = useState<TaskOption[] | null>(null);
   const [creatingCheckout, setCreatingCheckout] = useState(false);
   const [plannedPrompt, setPlannedPrompt] = useState<string | null>(null);
   const [plan, setPlan] = useState<{
@@ -72,6 +117,22 @@ export function InputClient() {
       setPlanning(false);
     }
   }
+
+  async function ensureTaskOptions() {
+    if (taskOptions) return;
+    const resp = await fetch("/api/tasks");
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok) throw new Error(json?.error || "Failed to load tools");
+    setTaskOptions(json?.tasks ?? []);
+  }
+
+  // When a plan exists, prefetch options so dropdowns are ready.
+  useEffect(() => {
+    if (plan && !taskOptions) {
+      ensureTaskOptions().catch(() => null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan]);
 
   async function createWorkflowCheckout() {
     if (!plan) return;
@@ -117,6 +178,45 @@ export function InputClient() {
     } finally {
       setCreatingCheckout(false);
     }
+  }
+
+  function recomputeTotals(nextSteps: PlannedStep[]) {
+    const subtotalMicro = nextSteps.reduce(
+      (sum, s) => sum + (s.missing ? 0 : toMicroUsdc(s.priceUsdc)),
+      0,
+    );
+    const rate = typeof plan?.serviceFeeRate === "number" ? plan.serviceFeeRate : 0.05;
+    const serviceFeeMicro = Math.round(subtotalMicro * rate);
+    const totalMicro = subtotalMicro + serviceFeeMicro;
+    return {
+      subtotalToolsUsdc: fromMicroUsdc(subtotalMicro),
+      serviceFeeUsdc: fromMicroUsdc(serviceFeeMicro),
+      totalPriceUsdc: fromMicroUsdc(totalMicro),
+      serviceFeeRate: rate,
+    };
+  }
+
+  async function onChangeStepTool(index: number, newTaskId: string) {
+    if (!plan) return;
+    await ensureTaskOptions();
+    const opt = (taskOptions ?? []).find((t) => t.id === newTaskId);
+    if (!opt) return;
+
+    const nextSteps = plan.steps.map((s, i) =>
+      i === index
+        ? {
+            ...s,
+            taskId: opt.id,
+            tool: `${opt.provider}/${opt.endpoint}`,
+            label: opt.title,
+            missing: false,
+            priceUsdc: opt.priceUsdc,
+          }
+        : s,
+    );
+
+    const totals = recomputeTotals(nextSteps);
+    setPlan({ ...plan, steps: nextSteps, ...totals });
   }
 
   // Auto-run if query param exists
@@ -189,24 +289,65 @@ export function InputClient() {
                 <div className="border border-[--color-border] bg-white p-4 text-sm">
                   <div className="font-semibold">Suggested flow</div>
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-[--color-muted]">
-                    {plan.steps.map((s, idx) => (
-                      <div key={`${s.taskId ?? "missing"}-${idx}`} className="flex items-center gap-2">
-                        <span
-                          className={[
-                            "border px-2 py-1 text-xs font-semibold",
-                            s.missing
-                              ? "border-red-400 bg-red-50 text-red-700"
-                              : "border-[--color-border-strong] bg-white text-[--color-text]",
-                          ].join(" ")}
-                        >
-                          {s.label}
-                          {s.missing ? " (missing)" : ""}
-                        </span>
-                        {idx < plan.steps.length - 1 ? (
-                          <span className="text-xs text-[--color-muted]">→</span>
-                        ) : null}
-                      </div>
-                    ))}
+                    {plan.steps.map((s, idx) => {
+                      const cap = getCapability(s);
+                      const options =
+                        cap && taskOptions
+                          ? taskOptions.filter((t) => capabilityMatch(cap, t))
+                          : null;
+                      // Only show dropdown if there are 2+ choices for this capability.
+                      const canSwitch = !!cap && !!options && options.length > 1;
+
+                      return (
+                        <div key={`${s.taskId ?? "missing"}-${idx}`} className="flex items-center gap-2">
+                          <div
+                            className={[
+                              "border px-2 py-1 text-xs font-semibold",
+                              s.missing
+                                ? "border-red-400 bg-red-50 text-red-700"
+                                : "border-[--color-border-strong] bg-white text-[--color-text]",
+                            ].join(" ")}
+                          >
+                            {canSwitch ? (
+                              <select
+                                className="bg-transparent text-xs font-semibold outline-none"
+                                value={s.taskId ?? ""}
+                                onClick={() => {
+                                  // lazy load options on demand
+                                  ensureTaskOptions().catch(() => null);
+                                }}
+                                onChange={(e) => onChangeStepTool(idx, e.target.value)}
+                              >
+                                {/* current option */}
+                                {s.taskId ? (
+                                  <option value={s.taskId}>{s.label}</option>
+                                ) : (
+                                  <option value="" disabled>
+                                    {s.label}
+                                  </option>
+                                )}
+                                {(options ?? [])
+                                  .filter((t) => t.id !== s.taskId)
+                                  .map((t) => (
+                                    <option key={t.id} value={t.id}>
+                                      {t.title}
+                                    </option>
+                                  ))}
+                              </select>
+                            ) : (
+                              <span>
+                                {s.label}
+                                {s.missing ? " (missing)" : ""}
+                              </span>
+                            )}
+                          </div>
+
+                          {idx < plan.steps.length - 1 ? (
+                            <span className="text-xs text-[--color-muted]">→</span>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </div>
                   {plan.notes ? (
                     <div className="mt-2 text-xs text-[--color-muted]">{plan.notes}</div>

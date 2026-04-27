@@ -18,7 +18,8 @@ export async function GET() {
       id: t.id,
       title: t.title,
       description: t.description,
-      priceUsdc: Number(t.price_usdc).toFixed(2),
+      // keep 6 decimals for transparent pricing in /input
+      priceUsdc: Number(t.price_usdc).toFixed(6),
       provider: t.provider,
       endpoint: t.endpoint,
     })),
