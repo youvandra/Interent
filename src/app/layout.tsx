@@ -99,7 +99,7 @@ export default function RootLayout({
               >
                 Provider
               </a>
-              <a href="/skill">
+              <a href="/skill.md">
                 <Button size="sm">
                   <Bot className="h-4 w-4" />
                   Agent guide
@@ -119,7 +119,7 @@ export default function RootLayout({
                   Provider
                 </a>
                 <div className="mt-2 px-3 pb-2">
-                  <a href="/skill" className="block">
+                  <a href="/skill.md" className="block">
                     <Button size="sm" className="w-full">
                       <Bot className="h-4 w-4" />
                       Agent guide

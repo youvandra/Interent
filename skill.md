@@ -28,8 +28,7 @@ This skill enables a buyer agent to **plan, pay, and run** AI microservice workf
 
 Set `INTERENT_BASE_URL` to your Interent domain:
 
-- Local: `http://localhost:3000`
-- Deploy: `https://<your-domain>.vercel.app`
+- Deploy: `https://interent.vercel.app`
 
 > Important: for Locus webhooks, Interent must be publicly reachable (deploy / https tunnel).
 

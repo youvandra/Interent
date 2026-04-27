@@ -9,7 +9,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/",
     "/input",
     "/provider",
-    "/skill",
+    "/skill.md",
   ];
 
   return routes.map((p) => ({
@@ -19,4 +19,3 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: p === "/" ? 1 : 0.7,
   }));
 }
-
