@@ -1,64 +1,140 @@
-# Interent (Supabase + Serverless)
+# Interent
 
-Internal-event MVP: **pay-to-run tasks** (OCR, translation, etc.) with **Locus Checkout** + execution via **Locus Wrapped APIs**.
+**Interent** is a pay-to-run AI toolchain marketplace:
+describe a task → get a suggested toolchain and expected outputs → review transparent pricing (incl. service fee) → pay once via **Locus Checkout** → Interent executes each step via **Locus Wrapped APIs** and returns the result.
 
-## 1) Setup Supabase
+> Repo status: MVP / demo-friendly. Some providers and endpoints depend on what you have populated in the database.
+
+---
+
+## What you can do
+
+- **Plan** a workflow from natural language (`/input`)
+  - Suggested flow (toolchain)
+  - Expected output selection (multi-select)
+  - Pricing breakdown: subtotal + 5% service fee + total (USDC precision)
+- **Choose provider alternatives** for certain steps (e.g. `chat` via OpenAI or Gemini) when multiple options exist in the `tasks` table.
+- **Pay & run** using Locus Checkout (single payment for the entire workflow).
+- **Test Pay** mode for demos without paying (creates a mock “DONE” job result).
+- Browse available providers/endpoints in `/provider` (old `/marketplace` redirects).
+
+---
+
+## Tech stack
+
+- **Next.js (App Router)** + **TypeScript**
+- **Supabase Postgres** (jobs, tasks, pricing)
+- **Locus Checkout** (`@withlocus/checkout-react`)
+- **Locus Wrapped APIs** (server-side execution)
+
+---
+
+## Project structure (high-level)
+
+```
+src/
+  app/
+    input/                 # Describe task → plan toolchain → pay/testpay
+    jobs/[id]/             # Job viewer (input/toolchain + output)
+    provider/              # Provider catalog UI (reads from tasks table)
+    api/
+      plan/                # Toolchain planner (OpenRouter + DB normalization)
+      tasks/               # List supported tasks/tools from DB
+      workflows/create/    # Create workflow checkout session (Locus)
+      workflows/testpay/   # Create mock DONE job (no payment, no execution)
+      webhooks/locus/      # Payment webhook → execute workflow/step calls
+      admin/sync-tools/    # Populate tasks from Locus provider docs (server-side)
+  lib/
+    locus_wrapped.ts       # Helper for calling Locus wrapped endpoints
+```
+
+---
+
+## Getting started
+
+### 1) Prerequisites
+
+- Node.js 18+ (recommended)
+- A Supabase project
+- Locus API credentials (internal/private depending on your org)
+
+### 2) Supabase setup
 
 1. Create a project in Supabase
 2. Open **SQL Editor** → run: `supabase-schema.sql`
-3. Grab these env vars:
+3. Copy credentials:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY` (server-only)
 
-> For the MVP: reads use the public anon key. Writes (webhook) use the service role key.
+> Reads use the anon key. Writes in server routes/webhooks use the service role key.
 
-## 2) Setup Locus (Internal)
+### 3) Locus setup
 
-Ask the internal platform/team for:
+Set:
 - `LOCUS_API_KEY`
 - `LOCUS_API_BASE`
 
-## 3) Env vars
+### 4) Environment variables
 
 Copy `.env.example` → `.env.local` and fill it in.
 
 Important:
-- `NEXT_PUBLIC_APP_URL` must be a publicly reachable base URL when deployed (for webhooks).
-  - Local: `http://localhost:3000` (webhooks won't reach your local machine)
-  - Deploy: `https://your-app.vercel.app`
+- `NEXT_PUBLIC_APP_URL` must be publicly reachable for webhooks.
+  - Local dev: `http://localhost:3000` (webhooks won’t reach local without a tunnel)
+  - Deployed: `https://your-app.vercel.app`
 
-## 4) Run locally
+### 5) Run locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-## 5) Deploy (Vercel)
+Open:
+- `http://localhost:3000/input`
 
-1. Import the repo into Vercel
-2. Set env vars (same as `.env.local`)
-3. Deploy
+---
 
-## Webhook notes
+## Core flows
 
-Webhook endpoint:
-- `POST /api/webhooks/locus`
+### Plan (Suggested flow + Expected output)
 
-Handler behavior:
-1. Find the job by `jobs.session_id`
-2. If `webhook_secret` exists, verify the HMAC header `X-Signature-256`
-3. On `checkout.session.paid`, execute the Wrapped API for the job's `task_id` and store the result in `jobs.result_json`
+`POST /api/plan`
+- Uses OpenRouter for planning
+- Normalizes steps against the `tasks` table (canonical labels + pricing)
+- Returns pricing fields:
+  - `subtotalToolsUsdc`
+  - `serviceFeeUsdc` (5% of subtotal)
+  - `totalPriceUsdc`
 
-## Sync full Wrapped API catalog (populate `tasks`)
+### Pay & execute
 
-If you want the full catalog (all providers + endpoints) inside the `tasks` table, call the server-side sync endpoint.
+1. `POST /api/workflows/create` → returns checkout session
+2. User completes Locus checkout
+3. Locus webhook hits:
+   - `POST /api/webhooks/locus`
+4. Webhook executes the workflow steps using Locus Wrapped APIs and stores results in `jobs.result_json`
+
+### Test Pay (no money)
+
+Use **Test Pay** on `/input` to create a mock job:
+- No Locus payment
+- No wrapped API calls
+- Job immediately `DONE` with example output
+
+---
+
+## Populate the provider catalog (`tasks` table)
+
+The `/provider` page shows whatever is in `public.tasks`.
+
+To import the full Wrapped API catalog into `tasks`, call the admin sync endpoint:
 
 1) Set env:
 - `ADMIN_SECRET` (any random string)
 
-2) Call the endpoint:
+2) Call:
 
 ```bash
 curl -X POST https://<your-domain>/api/admin/sync-tools \
@@ -67,7 +143,7 @@ curl -X POST https://<your-domain>/api/admin/sync-tools \
   -d '{"priceUsdc": 0.01}'
 ```
 
-You can also sync a single provider:
+Or sync one provider:
 
 ```bash
 curl -X POST https://<your-domain>/api/admin/sync-tools \
@@ -76,14 +152,29 @@ curl -X POST https://<your-domain>/api/admin/sync-tools \
   -d '{"provider":"openai","priceUsdc":0.01}'
 ```
 
+---
+
+## Deployment (Vercel)
+
+1. Import the repo into Vercel
+2. Set environment variables (same as `.env.local`)
+3. Deploy
+
+> Ensure `NEXT_PUBLIC_APP_URL` points to the deployed HTTPS URL so the Locus webhook can reach your server.
+
+---
+
 ## Troubleshooting
 
 ### `@locus/agent-sdk` can't be installed
 
-The merchant SDK package isn't on the public npm registry. This project creates checkout sessions via REST in:
+The merchant SDK package may not be publicly available. This project creates checkout sessions via REST in:
+
 - `src/app/api/jobs/create/route.ts`
 
-If your environment uses a different session-creation endpoint, update that one file.
+If your environment uses a different checkout creation endpoint, update that route.
+
+---
 
 ## Security
 
