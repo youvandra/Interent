@@ -167,9 +167,16 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
               </div>
             </div>
 
-            <Link href="/input">
-              <Button className="w-full">Back to describe</Button>
-            </Link>
+            <div className="grid grid-cols-2 gap-2">
+              <Link href="/input">
+                <Button className="w-full" variant="secondary">
+                  New task
+                </Button>
+              </Link>
+              <Link href={`/input?job=${encodeURIComponent(jobId)}&regenerate=1`}>
+                <Button className="w-full">Regenerate</Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

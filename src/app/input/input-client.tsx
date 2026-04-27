@@ -106,6 +106,35 @@ export function InputClient() {
   } | null>(null);
   const [testPaying, setTestPaying] = useState(false);
 
+  // Regenerate: load prior job context from localStorage
+  useEffect(() => {
+    const jobId = searchParams.get("job");
+    const regen = searchParams.get("regenerate");
+    if (!jobId || regen !== "1") return;
+    try {
+      const raw = window.localStorage.getItem(`interent_job_context_${jobId}`);
+      if (!raw) return;
+      const ctx = JSON.parse(raw);
+      if (typeof ctx?.prompt === "string") setPrompt(ctx.prompt);
+      if (Array.isArray(ctx?.selectedOutputs)) setSelectedOutputs(ctx.selectedOutputs);
+      if (ctx?.pricing?.totalPriceUsdc && Array.isArray(ctx?.steps)) {
+        setPlan({
+          steps: ctx.steps,
+          expectedOutputs: ctx.expectedOutputs ?? [],
+          subtotalToolsUsdc: ctx.pricing.subtotalToolsUsdc,
+          serviceFeeUsdc: ctx.pricing.serviceFeeUsdc,
+          serviceFeeRate: ctx.pricing.serviceFeeRate,
+          totalPriceUsdc: ctx.pricing.totalPriceUsdc,
+          notes: "Regenerated from previous job.",
+        });
+        setPlannedPrompt(ctx.prompt ?? null);
+      }
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function saveJobContext(jobId: string, mode: "live" | "test") {
     if (!plan) return;
     try {

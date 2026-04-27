@@ -4,7 +4,6 @@ import "./globals.css";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 import { Logo } from "@/components/site/logo";
-import { GeometricBackground } from "@/components/site/geometric-bg";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -64,11 +63,12 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.ico" },
-      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
-      { url: "/favicon-16x16.png", type: "image/png", sizes: "16x16" },
+      // Use a versioned query param to help browsers refresh cached favicons after deploys.
+      { url: "/favicon.ico?v=2" },
+      { url: "/favicon-32x32.png?v=2", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-16x16.png?v=2", type: "image/png", sizes: "16x16" },
     ],
-    apple: [{ url: "/apple-touch-icon.png", type: "image/png", sizes: "180x180" }],
+    apple: [{ url: "/apple-touch-icon.png?v=2", type: "image/png", sizes: "180x180" }],
   },
   manifest: "/site.webmanifest",
 };
@@ -83,8 +83,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="relative min-h-full bg-white text-[--color-text]">
-        <GeometricBackground />
+      <body className="min-h-full bg-white text-[--color-text]">
         <header className="sticky top-0 z-10 w-full border-b border-[--color-border] bg-white/90 backdrop-blur">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
             {/* Brand */}
