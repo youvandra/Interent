@@ -35,6 +35,7 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
     jobId: string;
     jobToken: string;
     sessionId: string;
+    checkoutUrl?: string | null;
   } | null>(null);
 
   useEffect(() => {
@@ -78,7 +79,22 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
       setError(json?.error || "Failed to create job");
       return;
     }
-    setJob({ jobId: json.jobId, jobToken: json.jobToken, sessionId: json.sessionId });
+    // `@withlocus/checkout-react` defaultnya pakai https://checkout.paywithlocus.com
+    // tapi di beta kadang checkout host-nya beda. Jadi kita pakai `checkoutUrl` dari API response.
+    const checkoutUrl = json?.checkoutUrl ?? null;
+    const sessionId =
+      json?.sessionId ??
+      (typeof checkoutUrl === "string" ? checkoutUrl.split("/").filter(Boolean).pop() : null);
+    if (!sessionId) {
+      setError("Missing sessionId from /api/jobs/create");
+      return;
+    }
+    setJob({
+      jobId: json.jobId,
+      jobToken: json.jobToken,
+      sessionId,
+      checkoutUrl,
+    });
     // simpan token lokal supaya /jobs bisa akses tanpa querystring
     window.localStorage.setItem(`interent_job_token_${json.jobId}`, json.jobToken);
   }
@@ -186,6 +202,7 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
             {job && (
               <LocusCheckout
                 sessionId={job.sessionId}
+                checkoutUrl={job.checkoutUrl ?? undefined}
                 mode="embedded"
                 onSuccess={() => {
                   window.location.href = `/jobs/${job.jobId}`;
@@ -202,4 +219,3 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
     </div>
   );
 }
-
