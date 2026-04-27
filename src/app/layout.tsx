@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Interent",
   description:
-    "Marketplace intelligence: buy USDC access to AI memory packs via Locus Checkout",
+    "Pay-per-use AI microservices marketplace — run OCR, translation, scraping, and more via Locus Checkout + Wrapped APIs.",
 };
 
 export default function RootLayout({
@@ -38,9 +38,15 @@ export default function RootLayout({
             <nav className="flex items-center gap-2 text-sm">
               <a
                 className="rounded-lg px-3 py-2 text-[--color-muted] hover:bg-[--color-surface] hover:text-[--color-text]"
+                href="/marketplace"
+              >
+                Marketplace
+              </a>
+              <a
+                className="rounded-lg px-3 py-2 text-[--color-muted] hover:bg-[--color-surface] hover:text-[--color-text]"
                 href="/skill"
               >
-                SKILL.MD
+                SKILL.md
               </a>
             </nav>
           </div>
