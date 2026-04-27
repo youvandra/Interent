@@ -47,6 +47,8 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
   }, [contextKey]);
 
   function stepStatusForIndex(i: number): "DONE" | "RUNNING" | "PENDING" | "FAILED" {
+    // For Test Pay jobs, render everything as DONE immediately.
+    if (jobContext?.mode === "test") return "DONE";
     const s = status?.status;
     const progressSteps = status?.resultJson?.progress?.steps as any[] | undefined;
     if (Array.isArray(progressSteps) && progressSteps[i]?.status) return progressSteps[i].status;

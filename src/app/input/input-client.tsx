@@ -105,10 +105,11 @@ export function InputClient() {
   } | null>(null);
   const [testPaying, setTestPaying] = useState(false);
 
-  function saveJobContext(jobId: string) {
+  function saveJobContext(jobId: string, mode: "live" | "test") {
     if (!plan) return;
     try {
       const payload = {
+        mode,
         prompt,
         steps: plan.steps,
         expectedOutputs: plan.expectedOutputs ?? [],
@@ -215,7 +216,7 @@ export function InputClient() {
       });
 
       window.localStorage.setItem(`interent_job_token_${json.jobId}`, json.jobToken);
-      saveJobContext(json.jobId);
+      saveJobContext(json.jobId, "live");
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
@@ -253,7 +254,7 @@ export function InputClient() {
       if (!resp.ok) throw new Error(json?.error || "Failed to create test job");
 
       window.localStorage.setItem(`interent_job_token_${json.jobId}`, json.jobToken);
-      saveJobContext(json.jobId);
+      saveJobContext(json.jobId, "test");
       window.location.href = `/jobs/${json.jobId}`;
     } catch (e: any) {
       setError(String(e?.message || e));
@@ -487,8 +488,11 @@ export function InputClient() {
                 <div className="border border-[--color-border] bg-white p-4 text-sm">
                   <div className="font-semibold">Price breakdown</div>
                   <div className="mt-2 space-y-1 text-[--color-muted]">
-                    {plan.steps.map((s) => (
-                      <div key={`${s.taskId ?? s.label}`} className="flex items-center justify-between">
+                    {plan.steps.map((s, idx) => (
+                      <div
+                        key={`${s.taskId ?? s.label ?? "step"}-${idx}`}
+                        className="flex items-center justify-between"
+                      >
                         <span>{s.label}</span>
                         <span>{s.missing ? "—" : `$${formatUsdc(s.priceUsdc)}`}</span>
                       </div>

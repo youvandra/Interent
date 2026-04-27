@@ -16,9 +16,60 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Interent",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://interent.vercel.app"),
+  title: {
+    default: "Interent",
+    template: "%s • Interent",
+  },
   description:
     "Pay-per-use AI microservices marketplace — run OCR, translation, scraping, and more via Locus Checkout + Wrapped APIs.",
+  applicationName: "Interent",
+  alternates: {
+    canonical: "/",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    url: "/",
+    title: "Interent",
+    siteName: "Interent",
+    description:
+      "Pay-per-use AI microservices marketplace — run OCR, translation, scraping, and more via Locus Checkout + Wrapped APIs.",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Interent",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Interent",
+    description:
+      "Pay-per-use AI microservices marketplace — run OCR, translation, scraping, and more via Locus Checkout + Wrapped APIs.",
+    images: ["/opengraph-image"],
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-16x16.png", type: "image/png", sizes: "16x16" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", type: "image/png", sizes: "180x180" }],
+  },
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({
