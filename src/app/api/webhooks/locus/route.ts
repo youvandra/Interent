@@ -115,43 +115,12 @@ export async function POST(req: Request) {
         const wfPrompt = String((input as any)?.prompt ?? "");
         const outputs: any[] = [];
 
-        // Initialize progress so UI can show which step is running.
-        type WorkflowStepStatus = "PENDING" | "RUNNING" | "DONE" | "FAILED";
-        const progress: {
-          currentStepIndex: number;
-          steps: Array<{ taskId: string; status: WorkflowStepStatus }>;
-        } = {
-          currentStepIndex: 0,
-          steps: steps.map((s) => ({ taskId: s.taskId, status: "PENDING" })),
-        };
-        await sb
-          .from("jobs")
-          .update({
-            status: "RUNNING",
-            result_json: { kind: "workflow", progress, steps: outputs },
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", job.id);
-
         let scrapedText: string | null = null;
         let translatedText: string | null = null;
 
-        for (let i = 0; i < steps.length; i++) {
-          const step = steps[i];
+        for (const step of steps) {
           const meta = stepMap.get(step.taskId);
           if (!meta) throw new Error(`Unknown taskId in workflow: ${step.taskId}`);
-
-          // Mark running step
-          progress.currentStepIndex = i;
-          progress.steps[i] = { taskId: step.taskId, status: "RUNNING" };
-          await sb
-            .from("jobs")
-            .update({
-              status: "RUNNING",
-              result_json: { kind: "workflow", progress, steps: outputs },
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", job.id);
 
           if (step.taskId === "firecrawl_scrape") {
             // Expect the user prompt contains a URL; simple extraction
@@ -192,20 +161,9 @@ export async function POST(req: Request) {
             const data = await callWrappedApi(meta.provider, meta.endpoint, {});
             outputs.push({ taskId: step.taskId, data });
           }
-
-          // Mark step done + persist partial result
-          progress.steps[i] = { taskId: step.taskId, status: "DONE" };
-          await sb
-            .from("jobs")
-            .update({
-              status: "RUNNING",
-              result_json: { kind: "workflow", progress, steps: outputs },
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", job.id);
         }
 
-        result = { kind: "workflow", progress, steps: outputs };
+        result = { kind: "workflow", steps: outputs };
       } else
       if (task.id === "ocr_mathpix") {
         const src = (input as any).imageUrl || (input as any).src;
@@ -241,29 +199,6 @@ export async function POST(req: Request) {
 
       return NextResponse.json({ ok: true });
     } catch (e: any) {
-      // If workflow failed mid-run, try to mark progress accordingly (best-effort).
-      try {
-        const { data: latest } = await sb
-          .from("jobs")
-          .select("result_json")
-          .eq("id", job.id)
-          .maybeSingle();
-        const existing = (latest as any)?.result_json as any;
-        if (existing?.kind === "workflow" && existing?.progress?.steps) {
-          const p = existing.progress;
-          const i = Number(p.currentStepIndex ?? 0);
-          if (p.steps?.[i]) p.steps[i] = { taskId: p.steps[i].taskId, status: "FAILED" };
-          await sb
-            .from("jobs")
-            .update({
-              result_json: { ...existing, progress: p },
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", job.id);
-        }
-      } catch {
-        // ignore
-      }
       await sb
         .from("jobs")
         .update({

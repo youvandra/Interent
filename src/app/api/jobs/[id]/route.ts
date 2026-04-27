@@ -32,6 +32,5 @@ export async function GET(
     completedAt: job.completed_at,
     error: job.error_message,
     inputJson: job.input_json,
-    resultJson: job.result_json,
   });
 }

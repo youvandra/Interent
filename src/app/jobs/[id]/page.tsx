@@ -14,7 +14,6 @@ type JobStatus = {
   status: string;
   error?: string | null;
   inputJson?: any;
-  resultJson?: any;
 };
 
 export default function JobPage({ params }: { params: Promise<{ id: string }> }) {
@@ -45,26 +44,6 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
       // ignore
     }
   }, [contextKey]);
-
-  function stepStatusForIndex(i: number): "DONE" | "RUNNING" | "PENDING" | "FAILED" {
-    // For Test Pay jobs, render everything as DONE immediately.
-    if (jobContext?.mode === "test") return "DONE";
-    const s = status?.status;
-    const progressSteps = status?.resultJson?.progress?.steps as any[] | undefined;
-    if (Array.isArray(progressSteps) && progressSteps[i]?.status) return progressSteps[i].status;
-    if (s === "DONE") return "DONE";
-    if (s === "FAILED") return "FAILED";
-    if (s === "RUNNING") return i === 0 ? "RUNNING" : "PENDING";
-    return "PENDING";
-  }
-
-  function stepClass(st: string) {
-    if (st === "DONE")
-      return "border-[--color-border-strong] bg-[--color-primary-soft] text-[--color-primary]";
-    if (st === "RUNNING") return "border-black bg-black text-white";
-    if (st === "FAILED") return "border-red-400 bg-red-50 text-red-700";
-    return "border-[--color-border] bg-white text-[--color-text] opacity-50";
-  }
 
   async function refresh({ silent = false }: { silent?: boolean } = {}) {
     setError(null);
@@ -265,10 +244,9 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       {jobContext.steps.map((s: any, idx: number) => {
-                        const st = stepStatusForIndex(idx);
                         return (
                           <div key={`${s.taskId ?? s.label ?? "step"}-${idx}`} className="flex items-center gap-2">
-                            <span className={`border px-2 py-1 text-xs font-semibold ${stepClass(st)}`}>
+                            <span className="border border-[--color-border-strong] bg-white px-2 py-1 text-xs font-semibold text-[--color-text]">
                               {s.label ?? s.taskId ?? `Step ${idx + 1}`}
                             </span>
                             {idx < jobContext.steps.length - 1 ? (

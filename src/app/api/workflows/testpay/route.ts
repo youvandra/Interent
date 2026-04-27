@@ -73,10 +73,6 @@ export async function POST(req: Request) {
     prompt,
     expectedOutputs,
     pricing: body.pricing ?? null,
-    progress: {
-      currentStepIndex: steps.length ? steps.length - 1 : 0,
-      steps: steps.map((s) => ({ taskId: s.taskId, status: "DONE" })),
-    },
     steps: steps.map((s) => ({
       taskId: s.taskId,
       label: s.label ?? s.taskId,
