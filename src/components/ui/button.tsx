@@ -15,9 +15,9 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition",
+        "inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg font-medium transition",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--color-primary] focus-visible:ring-offset-2",
-        "disabled:pointer-events-none disabled:opacity-50",
+        "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
         size === "sm" ? "h-9 px-3 text-sm" : "h-10 px-4 text-sm",
         variant === "primary" &&
           "text-white [background:var(--cta-gradient)] hover:opacity-95",

@@ -483,6 +483,7 @@ export function InputClient() {
                           aria-pressed={checked}
                           className={[
                             "relative text-left border p-3 pr-10 transition",
+                            "cursor-pointer",
                             checked
                               ? "border-[--color-border-strong] bg-[--color-primary-soft]"
                               : "border-[--color-border] bg-white hover:bg-[--color-surface]",
