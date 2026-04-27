@@ -8,10 +8,11 @@ type Body = {
   prompt?: string;
   steps?: Array<{ taskId: string; label?: string; priceUsdc?: string }>;
   totalPriceUsdc?: string;
+  expectedOutputs?: string[];
 };
 
 export async function POST(req: Request) {
-  const { buyerId, prompt, steps, totalPriceUsdc } = (await req.json()) as Body;
+  const { buyerId, prompt, steps, totalPriceUsdc, expectedOutputs } = (await req.json()) as Body;
   if (!buyerId) return NextResponse.json({ error: "buyerId required" }, { status: 400 });
   if (!prompt) return NextResponse.json({ error: "prompt required" }, { status: 400 });
   if (!Array.isArray(steps) || steps.length === 0)
@@ -58,6 +59,7 @@ export async function POST(req: Request) {
         kind: "workflow",
         prompt,
         steps,
+        expectedOutputs: Array.isArray(expectedOutputs) ? expectedOutputs : [],
       },
       job_token_hash: jobTokenHash,
     })

@@ -7,7 +7,7 @@ import { getOrCreateBuyerId } from "@/lib/buyer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Check, Loader2 } from "lucide-react";
 
 type PlannedStep = {
   taskId: string | null;
@@ -15,6 +15,13 @@ type PlannedStep = {
   tool?: string | null;
   missing?: boolean;
   priceUsdc: string;
+};
+
+type OutputOption = {
+  id: string;
+  label: string;
+  description: string;
+  defaultSelected?: boolean;
 };
 
 type TaskOption = {
@@ -80,6 +87,7 @@ export function InputClient() {
   const [plannedPrompt, setPlannedPrompt] = useState<string | null>(null);
   const [plan, setPlan] = useState<{
     steps: PlannedStep[];
+    expectedOutputs?: OutputOption[];
     subtotalToolsUsdc?: string;
     serviceFeeUsdc?: string;
     serviceFeeRate?: number;
@@ -87,6 +95,7 @@ export function InputClient() {
     notes?: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedOutputs, setSelectedOutputs] = useState<string[]>([]);
 
   const [checkout, setCheckout] = useState<{
     jobId: string;
@@ -111,6 +120,11 @@ export function InputClient() {
       if (!resp.ok) throw new Error(json?.error || "Failed to generate plan");
       setPlan(json);
       setPlannedPrompt(text);
+      const defaults =
+        (json?.expectedOutputs ?? [])
+          .filter((o: any) => o?.defaultSelected)
+          .map((o: any) => String(o.id)) ?? [];
+      setSelectedOutputs(defaults);
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
@@ -134,6 +148,10 @@ export function InputClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan]);
 
+  function toggleOutput(id: string) {
+    setSelectedOutputs((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
   async function createWorkflowCheckout() {
     if (!plan) return;
     const missing = plan.steps.filter((s) => s.missing);
@@ -154,6 +172,7 @@ export function InputClient() {
           prompt,
           steps: plan.steps.map((s) => ({ taskId: s.taskId!, label: s.label, priceUsdc: s.priceUsdc })),
           totalPriceUsdc: plan.totalPriceUsdc,
+          expectedOutputs: selectedOutputs,
         }),
       });
       const json = await resp.json().catch(() => null);
@@ -352,6 +371,54 @@ export function InputClient() {
                   {plan.notes ? (
                     <div className="mt-2 text-xs text-[--color-muted]">{plan.notes}</div>
                   ) : null}
+                </div>
+
+                <div className="border border-[--color-border] bg-white p-4 text-sm">
+                  <div className="font-semibold">Expected output</div>
+                  <div className="mt-2 text-sm text-[--color-muted]">
+                    Choose what you want to receive when the workflow completes.
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {(plan.expectedOutputs ?? []).map((o) => {
+                      const checked = selectedOutputs.includes(o.id);
+                      return (
+                        <button
+                          type="button"
+                          key={o.id}
+                          onClick={() => toggleOutput(o.id)}
+                          aria-pressed={checked}
+                          className={[
+                            "text-left border p-3 transition",
+                            checked
+                              ? "border-[--color-border-strong] bg-[--color-primary-soft]"
+                              : "border-[--color-border] bg-white hover:bg-[--color-surface]",
+                          ].join(" ")}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-semibold text-[--color-text]">
+                                {o.label}
+                              </div>
+                              <div className="mt-1 text-xs text-[--color-muted]">
+                                {o.description}
+                              </div>
+                            </div>
+                            <span
+                              aria-hidden="true"
+                              className={[
+                                "mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
+                                checked
+                                  ? "border-[--color-border-strong] bg-white text-[--color-primary]"
+                                  : "border-[--color-border-strong] bg-transparent text-[--color-muted]",
+                              ].join(" ")}
+                            >
+                              <Check className={["h-3.5 w-3.5", checked ? "opacity-100" : "opacity-0"].join(" ")} />
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className="border border-[--color-border] bg-white p-4 text-sm">

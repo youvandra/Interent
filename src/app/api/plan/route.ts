@@ -12,6 +12,13 @@ type PlanStep = {
   params?: Record<string, unknown>;
 };
 
+type OutputOption = {
+  id: string;
+  label: string;
+  description: string;
+  defaultSelected?: boolean;
+};
+
 function inferSupportedTaskId(label: string, userText: string) {
   const l = (label || "").toLowerCase();
   const t = (userText || "").toLowerCase();
@@ -33,6 +40,58 @@ function inferSupportedTaskId(label: string, userText: string) {
     return "openai_tts";
   }
   return null;
+}
+
+function fallbackOutputs(text: string): OutputOption[] {
+  const t = text.toLowerCase();
+  const wantsScrape = /http|url|link|scrape|crawl|extract|article|website/.test(t);
+  const wantsTranslate = /translate|spanish|indonesian|english|japanese|korean|chinese|terjemah/.test(t);
+  const wantsTts = /audio|tts|speech|voice|mp3|wav/.test(t);
+  const wantsImage = /image|generate image|text-to-image|illustration/.test(t);
+
+  const opts: OutputOption[] = [];
+  if (wantsScrape) {
+    opts.push({
+      id: "extracted_text",
+      label: "Extracted content",
+      description: "Clean article/body text (or markdown) extracted from the URL.",
+      defaultSelected: true,
+    });
+  }
+  if (wantsTranslate) {
+    opts.push({
+      id: "translated_text",
+      label: "Translated text",
+      description: "Final translated text in your target language.",
+      defaultSelected: true,
+    });
+  }
+  if (wantsTts) {
+    opts.push({
+      id: "audio_file",
+      label: "Audio file (MP3)",
+      description: "Speech audio generated from the final text output.",
+      defaultSelected: true,
+    });
+  }
+  if (wantsImage) {
+    opts.push({
+      id: "generated_image",
+      label: "Generated image",
+      description: "An image output (base64 or URL, depending on provider).",
+      defaultSelected: true,
+    });
+  }
+
+  if (!opts.length) {
+    opts.push({
+      id: "json_result",
+      label: "JSON result",
+      description: "Raw JSON output from the workflow steps.",
+      defaultSelected: true,
+    });
+  }
+  return opts;
 }
 
 function fallbackPlan(text: string): PlanStep[] {
@@ -120,6 +179,9 @@ export async function POST(req: Request) {
     '  "steps": [',
     '    { "taskId": "<supported taskId OR empty>", "tool": "<provider/endpoint>", "label": "<human label>", "missing": <true|false> }',
     "  ],",
+    '  "expectedOutputs": [',
+    '    { "id": "short_id", "label": "Short label", "description": "What the user will get", "defaultSelected": true }',
+    "  ],",
     '  "notes": "<one-sentence explanation>"',
     "}",
     "Supported tools (use these when possible):",
@@ -127,6 +189,7 @@ export async function POST(req: Request) {
     "If a required step is not supported yet, still include it with missing=true and a best-guess tool in provider/endpoint format.",
     "Allowed provider slugs (for tool field):",
     JSON.stringify(providerSlugs),
+    "For expectedOutputs, include 2-5 items. Prefer: extracted_text, translated_text, audio_file, json_result.",
     "Rules:",
     "- Prefer the shortest chain that satisfies the request.",
     "- If the user mentions a URL/link and extracting content, include firecrawl_scrape.",
@@ -136,6 +199,7 @@ export async function POST(req: Request) {
   ].join("\n");
 
   let steps: PlanStep[] | null = null;
+  let expectedOutputs: OutputOption[] | null = null;
   let notes = "";
   try {
     const key = getOpenRouterApiKey();
@@ -164,9 +228,11 @@ export async function POST(req: Request) {
     if (!resp.ok || !content) throw new Error("OpenRouter response missing content");
     const parsed = JSON.parse(content);
     steps = Array.isArray(parsed?.steps) ? parsed.steps : null;
+    expectedOutputs = Array.isArray(parsed?.expectedOutputs) ? parsed.expectedOutputs : null;
     notes = String(parsed?.notes || "");
   } catch {
     steps = fallbackPlan(text);
+    expectedOutputs = fallbackOutputs(text);
     notes = "Fallback planner was used.";
   }
 
@@ -227,6 +293,7 @@ export async function POST(req: Request) {
     serviceFeeUsdc: fromMicro(serviceFeeMicro),
     serviceFeeRate: SERVICE_FEE_RATE,
     totalPriceUsdc: fromMicro(totalMicro),
+    expectedOutputs: (expectedOutputs ?? fallbackOutputs(text)).slice(0, 6),
     notes,
   });
 }
