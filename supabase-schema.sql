@@ -44,6 +44,9 @@ create index if not exists jobs_session_id_idx on public.jobs(session_id);
 -- Seed contoh tasks
 insert into public.tasks (id, title, description, price_usdc, provider, endpoint)
 values
+  -- Workflow meta-task (used to charge and run multi-step toolchains)
+  ('workflow', 'Workflow', 'Multi-step workflow runner (internal).', 0.01, 'interent', 'workflow'),
+
   ('ocr_mathpix', 'OCR (Mathpix)', 'Extract text/LaTeX from an image URL.', 0.01, 'mathpix', 'process-image'),
   ('translate_deepl', 'Translate (DeepL)', 'High-quality translation for heavy text.', 0.01, 'deepl', 'translate'),
 

@@ -25,9 +25,9 @@ export default async function Home() {
             </p>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <a href="/marketplace">
+              <a href="/input">
                 <Button>
-                  Open marketplace <ArrowRight className="h-4 w-4" />
+                  Describe a task <ArrowRight className="h-4 w-4" />
                 </Button>
               </a>
             </div>
@@ -169,9 +169,9 @@ export default async function Home() {
               Start with OCR or translation — then expand to any wrapped provider.
             </div>
           </div>
-          <a href="/marketplace">
+          <a href="/input">
             <Button>
-              Browse tasks <ArrowRight className="h-4 w-4" />
+              Plan & run a task <ArrowRight className="h-4 w-4" />
             </Button>
           </a>
         </div>

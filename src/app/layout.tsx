@@ -39,34 +39,16 @@ export default function RootLayout({
               <span>Interent</span>
             </a>
 
-            {/* Desktop nav */}
-            <nav className="hidden items-center gap-1 text-sm sm:flex">
-              <a
-                className="px-3 py-2 text-[--color-muted] hover:text-[--color-text]"
-                href="/marketplace"
-              >
-                Marketplace
-              </a>
-              <a
-                className="px-3 py-2 text-[--color-muted] hover:text-[--color-text]"
-                href="/skill"
-              >
-                SKILL.md
-              </a>
-              <a
-                className="px-3 py-2 text-[--color-muted] hover:text-[--color-text]"
-                href="https://docs.paywithlocus.com/wrapped-apis"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Wrapped APIs
-              </a>
-            </nav>
-
             {/* Right actions */}
             <div className="hidden items-center gap-2 sm:flex">
-              <a href="/marketplace">
-                <Button size="sm">Launch app</Button>
+              <a
+                className="px-3 py-2 text-sm text-[--color-muted] hover:text-[--color-text]"
+                href="/marketplace"
+              >
+                Tools
+              </a>
+              <a href="/skill">
+                <Button size="sm">Agent guide</Button>
               </a>
             </div>
 
@@ -79,23 +61,12 @@ export default function RootLayout({
               </summary>
               <div className="absolute right-0 mt-2 w-56 border border-[--color-border] bg-white p-2 shadow-[0_12px_48px_rgba(16,24,40,0.12)]">
                 <a className="block px-3 py-2 text-sm hover:bg-[--color-surface]" href="/marketplace">
-                  Marketplace
-                </a>
-                <a className="block px-3 py-2 text-sm hover:bg-[--color-surface]" href="/skill">
-                  SKILL.md
-                </a>
-                <a
-                  className="block px-3 py-2 text-sm hover:bg-[--color-surface]"
-                  href="https://docs.paywithlocus.com/wrapped-apis"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Wrapped APIs
+                  Tools
                 </a>
                 <div className="mt-2 px-3 pb-2">
-                  <a href="/marketplace" className="block">
+                  <a href="/skill" className="block">
                     <Button size="sm" className="w-full">
-                      Launch app
+                      Agent guide
                     </Button>
                   </a>
                 </div>
