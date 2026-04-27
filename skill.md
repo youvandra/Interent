@@ -10,17 +10,19 @@ metadata:
 
 # Interent — Skill (for Buyer Agents)
 
-This skill enables a buyer agent to **pay and run tasks** (OCR, translation, etc.) securely:
+This skill enables a buyer agent to **plan, pay, and run** AI microservice workflows:
 
 - Payment: **Locus Checkout** (USDC on Base)
 - Execution: **Locus Wrapped APIs** (Interent pays per-call from the Interent wallet)
-- Result access: **job token** (the plaintext token is only returned once)
+- Result access: **job token**
 
 ## Quick concepts
 
 - **Task** = purchasable unit of work (e.g., OCR an image, translate text).
 - **Job** = an instance of a task created by a buyer. A job has a status and a result.
 - **Job token** = access token used to poll status and fetch a job result.
+- **Workflow** = a chain of tasks (toolchain) planned from natural language (e.g., scrape → translate → TTS).
+- **Expected output** = what the buyer wants to receive at the end (e.g., translated text, audio file, JSON).
 
 ## Environment & Base URL
 
@@ -48,19 +50,58 @@ Response:
 
 ---
 
-# Capability 2 — Create job + checkout session
+# Capability 2 — Plan a toolchain (Suggested flow + Expected output + Pricing)
 
-**POST** `${INTERENT_BASE_URL}/api/jobs/create`
+**POST** `${INTERENT_BASE_URL}/api/plan`
+
+Body:
+```json
+{ "text": "Extract the article body from a URL, translate to Spanish, then generate audio." }
+```
+
+Response (shape):
+```json
+{
+  "steps": [
+    { "taskId": "firecrawl_scrape", "tool": "firecrawl/scrape", "label": "Web Scrape (Firecrawl)", "priceUsdc": "0.010000", "missing": false },
+    { "taskId": "translate_deepl", "tool": "deepl/translate", "label": "Translate (DeepL)", "priceUsdc": "0.010000", "missing": false },
+    { "taskId": "openai_tts", "tool": "openai/tts", "label": "Text-to-Speech (OpenAI)", "priceUsdc": "0.010000", "missing": false }
+  ],
+  "expectedOutputs": [
+    { "id": "translated_text", "label": "Translated text", "description": "Final translated text in your target language.", "defaultSelected": true },
+    { "id": "audio_file", "label": "Audio file (MP3)", "description": "Speech audio generated from the final text output.", "defaultSelected": true }
+  ],
+  "subtotalToolsUsdc": "0.030000",
+  "serviceFeeRate": 0.05,
+  "serviceFeeUsdc": "0.001500",
+  "totalPriceUsdc": "0.031500",
+  "notes": "..."
+}
+```
+
+Rules:
+- If a required step is not supported, the planner will mark it with `"missing": true`. You must not proceed to payment until missing steps are resolved (switch to supported tools or simplify the request).
+- Prices are returned with up to **6 decimals** (USDC precision).
+- `serviceFeeUsdc` is **5% of subtotalToolsUsdc** (same precision) and `totalPriceUsdc = subtotal + fee`.
+
+---
+
+# Capability 3 — Create workflow checkout session (single payment for the toolchain)
+
+**POST** `${INTERENT_BASE_URL}/api/workflows/create`
 
 Body:
 ```json
 {
-  "taskId": "translate_deepl",
   "buyerId": "uuid-buyer-agent",
-  "input": {
-    "text": "Please translate this to English",
-    "targetLang": "EN"
-  }
+  "prompt": "Extract the article body from a URL, translate to Spanish, then generate audio.",
+  "steps": [
+    { "taskId": "firecrawl_scrape" },
+    { "taskId": "translate_deepl" },
+    { "taskId": "openai_tts" }
+  ],
+  "expectedOutputs": ["translated_text", "audio_file"],
+  "totalPriceUsdc": "0.031500"
 }
 ```
 
@@ -74,11 +115,13 @@ Response:
 }
 ```
 
-`buyerId` is the buyer agent's ID (generate a UUID and store it).
+Notes:
+- `buyerId` should be stable per buyer agent (generate a UUID once and store it).
+- `totalPriceUsdc` should be the exact value returned by `/api/plan` (same decimals).
 
 ---
 
-# Capability 3 — Pay the checkout session (via Locus)
+# Capability 4 — Pay the checkout session (via Locus)
 
 Use the Locus API (requires a `claw_...` API key in the appropriate environment).
 
@@ -100,7 +143,7 @@ curl -X POST $LOCUS_API_BASE/checkout/agent/pay/$SESSION_ID \
 
 ---
 
-# Capability 4 — Poll job status
+# Capability 5 — Poll job status
 
 **GET** `${INTERENT_BASE_URL}/api/jobs/<jobId>`
 
@@ -116,7 +159,7 @@ Response:
 
 ---
 
-# Capability 5 — Get result
+# Capability 6 — Get result
 
 **GET** `${INTERENT_BASE_URL}/api/jobs/<jobId>/result`
 
@@ -125,15 +168,38 @@ Headers:
 Authorization: Bearer job_live_...
 ```
 
-Response:
+Response (workflow example):
 ```json
-{ "result": { "...": "..." } }
+{
+  "result": {
+    "kind": "workflow",
+    "steps": [
+      { "taskId": "firecrawl_scrape", "data": { "...": "..." } },
+      { "taskId": "translate_deepl", "data": { "...": "..." } },
+      { "taskId": "openai_tts", "data": { "...": "..." } }
+    ]
+  }
+}
 ```
 
 ---
 
-## Security rules (required)
+# Capability 7 — (Optional) Switch providers per step
 
-- Never leak the job token or Locus API key to any third party.
-- Do not bypass payment: the job will not execute until `checkout.session.paid`.
-- The plaintext job token is returned only once (store it securely).
+Some capabilities can be satisfied by multiple providers (e.g. `chat` can be OpenAI or Gemini).
+To switch, list all supported tasks and choose a different task with the same `endpoint`:
+
+- `chat` (LLM chat)
+- `tts` (text-to-speech)
+- `translate`
+- `scrape` / `search` / `extract`
+- `image-generate`
+
+**GET** `${INTERENT_BASE_URL}/api/tasks` returns `provider` and `endpoint` for each supported task.
+
+---
+
+## Operator note (not for buyer agents): syncing the full tool catalog
+
+If your `/provider` page looks incomplete, it means the database `tasks` table is not populated with all wrapped endpoints.
+Use the admin sync endpoint to populate everything from Locus (requires `ADMIN_SECRET`).

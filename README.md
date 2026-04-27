@@ -84,3 +84,7 @@ The merchant SDK package isn't on the public npm registry. This project creates 
 - `src/app/api/jobs/create/route.ts`
 
 If your environment uses a different session-creation endpoint, update that one file.
+
+## Security
+
+See `SECURITY.md` (internal notes).
