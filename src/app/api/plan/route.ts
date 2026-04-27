@@ -40,17 +40,25 @@ function estimateStepTokens(opts: {
 
   // Heuristic output sizes by endpoint (tune later).
   let outputTokens = 0;
-  if (endpoint === "scrape") outputTokens = 2000;
-  else if (endpoint === "extract") outputTokens = 1500;
-  else if (endpoint === "search") outputTokens = 600;
+  // NOTE: This is intentionally conservative-but-not-tiny so pricing doesn't become "micro-cents".
+  // We treat some non-LLM tools (scrape/search/extract) as generating large text payloads.
+  if (endpoint === "scrape") outputTokens = 120_000;
+  else if (endpoint === "extract") outputTokens = 80_000;
+  else if (endpoint === "search") outputTokens = 25_000;
   else if (endpoint === "translate") outputTokens = inputTokens;
-  else if (endpoint === "chat") outputTokens = 800;
-  else if (endpoint === "image-generate") outputTokens = 50;
-  else if (endpoint === "tts") outputTokens = 20;
+  else if (endpoint === "chat") outputTokens = 4_000;
+  // Image/TTS are "token-equivalent" estimates for pricing, not actual text tokens.
+  else if (endpoint === "image-generate") outputTokens = 100_000;
+  else if (endpoint === "tts") outputTokens = 30_000;
   else outputTokens = 300;
 
+  // Cap to avoid runaway estimates.
+  outputTokens = Math.min(outputTokens, 200_000);
+
   const totalTokens = inputTokens + outputTokens;
-  const nextTextTokens = outputTokens > 0 ? outputTokens : inputTokens;
+  // Only some endpoints produce text that should become the next step's "context".
+  const producesTextContext = ["scrape", "extract", "search", "translate", "chat"].includes(endpoint);
+  const nextTextTokens = producesTextContext ? outputTokens : inputTokens;
   return { promptTokens, inputTokens, outputTokens, totalTokens, nextTextTokens };
 }
 
