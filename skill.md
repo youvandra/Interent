@@ -39,6 +39,27 @@ Instead:
 > “Interent is a pay-to-run toolchain marketplace: I can plan a workflow, show pricing, and run it after payment.  
 > What task do you want me to send to Interent? Also choose payment: (A) you pay the checkoutUrl, or (B) you give me a beta Locus API key (claw_dev_*) so I can pay for you.”
 
+## Recommended end-to-end flow (how this should work)
+
+After you collect the user’s task + preferences:
+
+1) **Plan (tool detection)**  
+   Send the user prompt to Interent to get a suggested toolchain + expected outputs + pricing:
+   - `POST ${INTERENT_BASE_URL}/api/plan`
+
+2) **Create checkout session**  
+   Create a single checkout session for the full toolchain:
+   - `POST ${INTERENT_BASE_URL}/api/workflows/create`
+   - You will get: `{ jobId, jobToken, sessionId, checkoutUrl }`
+
+3) **Payment** (choose one)
+   - **Option A (safer):** Send `checkoutUrl` to the user and ask them to pay.
+   - **Option B:** If the user explicitly requests agent-pay, use the user’s **beta** Locus key (`claw_dev_*`) to pay the `sessionId` via Locus Checkout agent-pay.
+
+4) **Wait for execution, then fetch result**
+   - Poll job status: `GET ${INTERENT_BASE_URL}/api/jobs/<jobId>` (Authorization: `Bearer <jobToken>`)
+   - When `DONE`, fetch result: `GET ${INTERENT_BASE_URL}/api/jobs/<jobId>/result`
+
 ## Quick concepts
 
 - **Task** = purchasable unit of work (e.g., OCR an image, translate text).
@@ -169,7 +190,20 @@ curl -X POST https://beta-api.paywithlocus.com/api/checkout/agent/pay/$SESSION_I
   -H "Authorization: Bearer $LOCUS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"payerEmail":"buyer@example.com"}'
+
+# Then poll the payment transaction until CONFIRMED:
+curl https://beta-api.paywithlocus.com/api/checkout/agent/payments/$TRANSACTION_ID \
+  -H "Authorization: Bearer $LOCUS_API_KEY"
 ```
+
+### How this connects to Interent (must follow this order)
+
+When using agent-pay for Interent, the flow must be:
+
+1) Create the workflow checkout session on Interent → you receive `{ sessionId, jobId, jobToken }`
+2) Pay the `sessionId` using the Locus agent-pay flow above (beta URLs)
+3) After payment is `CONFIRMED`, Interent’s webhook will execute the job
+4) Poll the job using `jobToken` until `DONE`, then fetch the result
 
 ---
 

@@ -6,6 +6,7 @@ import { LocusCheckout } from "@withlocus/checkout-react";
 import { getOrCreateBuyerId } from "@/lib/buyer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SquareSpinner } from "@/components/ui/square-spinner";
 import { ArrowRight, Check, FlaskConical } from "lucide-react";
@@ -98,6 +99,9 @@ export function InputClient() {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedOutputs, setSelectedOutputs] = useState<string[]>([]);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoValid, setPromoValid] = useState(false);
+  const [promoChecking, setPromoChecking] = useState(false);
 
   const [checkout, setCheckout] = useState<{
     jobId: string;
@@ -228,10 +232,19 @@ export function InputClient() {
           steps: plan.steps.map((s) => ({ taskId: s.taskId!, label: s.label, priceUsdc: s.priceUsdc })),
           totalPriceUsdc: plan.totalPriceUsdc,
           expectedOutputs: selectedOutputs,
+          promoCode: promoCode.trim() || undefined,
         }),
       });
       const json = await resp.json().catch(() => null);
       if (!resp.ok) throw new Error(json?.error || "Failed to create checkout");
+
+      // Promo flow: no checkout session, redirect directly to job page.
+      if (json?.promoApplied) {
+        window.localStorage.setItem(`interent_job_token_${json.jobId}`, json.jobToken);
+        saveJobContext(json.jobId, "live");
+        window.location.href = `/jobs/${json.jobId}`;
+        return;
+      }
 
       const checkoutUrl = json?.checkoutUrl ?? null;
       const sessionId =
@@ -254,6 +267,36 @@ export function InputClient() {
       setCreatingCheckout(false);
     }
   }
+
+  // Validate promo code (best-effort) so the UI can show a free total.
+  useEffect(() => {
+    const code = promoCode.trim();
+    if (!code) {
+      setPromoValid(false);
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(async () => {
+      setPromoChecking(true);
+      try {
+        const resp = await fetch("/api/promo/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+        });
+        const json = await resp.json().catch(() => null);
+        if (!cancelled) setPromoValid(Boolean(json?.valid));
+      } catch {
+        if (!cancelled) setPromoValid(false);
+      } finally {
+        if (!cancelled) setPromoChecking(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [promoCode]);
 
   async function testPay() {
     if (!plan) return;
@@ -525,6 +568,27 @@ export function InputClient() {
 
                 <div className="border border-[--color-border] bg-white p-4 text-sm">
                   <div className="font-semibold">Price breakdown</div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div className="sm:col-span-1">
+                      <div className="text-xs font-semibold tracking-widest text-[--color-muted]">
+                        PROMO CODE
+                      </div>
+                      <Input
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.target.value)}
+                        placeholder="Enter promo code"
+                      />
+                      <div className="mt-1 text-xs text-[--color-muted]">
+                        {promoChecking
+                          ? "Checking…"
+                          : promoCode.trim()
+                            ? promoValid
+                              ? "Promo applied — free checkout."
+                              : "Invalid code."
+                            : "Optional."}
+                      </div>
+                    </div>
+                  </div>
                   <div className="mt-2 space-y-1 text-[--color-muted]">
                     {plan.steps.map((s, idx) => (
                       <div
@@ -547,13 +611,24 @@ export function InputClient() {
                             ? `(${Math.round(plan.serviceFeeRate * 100)}%)`
                             : "(5%)"}
                         </span>
-                        <span>
-                          ${formatUsdc(plan.serviceFeeUsdc ?? "0")}
-                        </span>
+                        <span>${formatUsdc(plan.serviceFeeUsdc ?? "0")}</span>
                       </div>
+                      {promoValid ? (
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Discount (100%)</span>
+                          <span>
+                            -$
+                            {formatUsdc(
+                              String(
+                                Number(plan.subtotalToolsUsdc ?? "0") + Number(plan.serviceFeeUsdc ?? "0"),
+                              ),
+                            )}
+                          </span>
+                        </div>
+                      ) : null}
                       <div className="flex items-center justify-between font-semibold text-[--color-text]">
                         <span>Total</span>
-                        <span>${formatUsdc(plan.totalPriceUsdc)}</span>
+                        <span>${promoValid ? "0" : formatUsdc(plan.totalPriceUsdc)}</span>
                       </div>
                     </div>
                   </div>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getAppUrl, getLocusApiBase, getLocusApiKey } from "@/lib/locus";
 import { randomToken, sha256Hex } from "@/lib/auth";
+import { executeJobNow } from "@/lib/execute-job";
 
 type Body = {
   buyerId?: string;
@@ -9,17 +10,25 @@ type Body = {
   steps?: Array<{ taskId: string; label?: string; priceUsdc?: string }>;
   totalPriceUsdc?: string;
   expectedOutputs?: string[];
+  promoCode?: string;
 };
 
 export async function POST(req: Request) {
-  const { buyerId, prompt, steps, totalPriceUsdc, expectedOutputs } = (await req.json()) as Body;
+  const { buyerId, prompt, steps, totalPriceUsdc, expectedOutputs, promoCode } = (await req.json()) as Body;
   if (!buyerId) return NextResponse.json({ error: "buyerId required" }, { status: 400 });
   if (!prompt) return NextResponse.json({ error: "prompt required" }, { status: 400 });
   if (!Array.isArray(steps) || steps.length === 0)
     return NextResponse.json({ error: "steps required" }, { status: 400 });
 
+  const expectedPromo = (process.env.PROMO_CODE || "").trim();
+  const promoOk =
+    Boolean(expectedPromo) &&
+    typeof promoCode === "string" &&
+    promoCode.trim().length > 0 &&
+    promoCode.trim().toUpperCase() === expectedPromo.toUpperCase();
+
   const total = Number(totalPriceUsdc ?? "0");
-  if (!Number.isFinite(total) || total <= 0) {
+  if (!promoOk && (!Number.isFinite(total) || total <= 0)) {
     return NextResponse.json({ error: "totalPriceUsdc required" }, { status: 400 });
   }
 
@@ -60,6 +69,7 @@ export async function POST(req: Request) {
         prompt,
         steps,
         expectedOutputs: Array.isArray(expectedOutputs) ? expectedOutputs : [],
+        ...(promoOk ? { promoApplied: true } : {}),
       },
       job_token_hash: jobTokenHash,
     })
@@ -69,6 +79,14 @@ export async function POST(req: Request) {
   if (jobErr) return NextResponse.json({ error: jobErr.message }, { status: 500 });
   const jobId = jobRow?.id;
   if (!jobId) return NextResponse.json({ error: "Failed to create job" }, { status: 500 });
+
+  // Promo: free checkout (skip Locus session) and run immediately.
+  if (promoOk) {
+    const paidAt = new Date().toISOString();
+    // Fire-and-forget execution; job page will poll status/result.
+    void executeJobNow(jobId, { txHash: null, paidAt });
+    return NextResponse.json({ jobId, jobToken, promoApplied: true });
+  }
 
   const appUrl = getAppUrl();
   if (!/^https:\/\//i.test(appUrl)) {
