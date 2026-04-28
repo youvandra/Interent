@@ -148,6 +148,11 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
 
     // Workflow
     if (data?.kind === "workflow") {
+      const prettyText =
+        (typeof data?.prettyText === "string" && data.prettyText.trim()) ||
+        (typeof r?.prettyText === "string" && r.prettyText.trim())
+          ? (data?.prettyText ?? r?.prettyText)
+          : null;
       const finalText = extractTextFromAny(data);
       const steps = Array.isArray(data?.steps) ? data.steps : [];
 
@@ -171,7 +176,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
           <div>
             <div className="text-sm font-medium text-[--color-text]">Final output</div>
             <div className="mt-2 whitespace-pre-wrap rounded-lg border border-[--color-border] bg-[--color-surface] p-3 text-sm text-[--color-text]">
-              {finalText || "—"}
+              {prettyText || finalText || "—"}
             </div>
           </div>
 

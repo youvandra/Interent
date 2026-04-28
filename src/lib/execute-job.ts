@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { callWrappedApi } from "@/lib/locus_wrapped";
+import { formatWorkflowResult } from "@/lib/format-result";
 
 function extractFirstUrl(text: string) {
   const m = text.match(/https?:\/\/\S+/i);
@@ -184,6 +185,9 @@ export async function executeJobNow(jobId: string, opts?: { txHash?: string | nu
       );
 
       const wfPrompt = String((input as any)?.prompt ?? "");
+      const wfExpectedOutputs = Array.isArray((input as any)?.expectedOutputs)
+        ? ((input as any).expectedOutputs as string[])
+        : [];
       const outputs: any[] = [];
 
       let lastText: string | null = null;
@@ -250,7 +254,20 @@ export async function executeJobNow(jobId: string, opts?: { txHash?: string | nu
         if (nextText) lastText = nextText;
       }
 
-      result = { kind: "workflow", prompt: wfPrompt, steps: outputs, finalText: lastText };
+      const pretty = await formatWorkflowResult({
+        prompt: wfPrompt,
+        expectedOutputs: wfExpectedOutputs,
+        steps: outputs,
+        finalText: lastText,
+      });
+
+      result = {
+        kind: "workflow",
+        prompt: wfPrompt,
+        steps: outputs,
+        finalText: lastText,
+        ...(pretty?.prettyText ? { prettyText: pretty.prettyText } : {}),
+      };
     } else if (task.id === "ocr_mathpix") {
       const src = (input as any).imageUrl || (input as any).src;
       if (!src) throw new Error("Missing input.imageUrl");
