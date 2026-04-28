@@ -16,6 +16,29 @@ This skill enables a buyer agent to **plan, pay, and run** AI microservice workf
 - Execution: **Locus Wrapped APIs** (Interent pays per-call from the Interent wallet)
 - Result access: **job token**
 
+## Agent behavior contract (READ THIS FIRST)
+
+When a user says “read this skill.md”, **do not** summarize or restate this entire document.
+Instead:
+
+1) Give a **1–2 sentence** introduction of Interent.
+2) Ask the user **what task** they want to send to Interent.
+3) Ask how they want to **pay** (two options below).
+
+### Required questions to ask the user
+
+- What is the task/prompt?
+- What outputs do you want? (pick from `expectedOutputs` or describe your desired format)
+- Any constraints? (language, URL(s), length, tone, etc.)
+- Payment choice:
+  - **Option A (safer):** I will create a checkout session and you pay via `checkoutUrl`.
+  - **Option B:** If you explicitly want the agent to pay, provide a **beta Locus API key** (`claw_dev_*`).
+
+### Example response format (what you should say)
+
+> “Interent is a pay-to-run toolchain marketplace: I can plan a workflow, show pricing, and run it after payment.  
+> What task do you want me to send to Interent? Also choose payment: (A) you pay the checkoutUrl, or (B) you give me a beta Locus API key (claw_dev_*) so I can pay for you.”
+
 ## Quick concepts
 
 - **Task** = purchasable unit of work (e.g., OCR an image, translate text).
