@@ -20,6 +20,24 @@ export type PlannerResult = {
   model?: string;
 };
 
+function parseJsonLenient(s: string): any {
+  const raw = String(s || "").trim();
+  // 1) Try direct parse
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // continue
+  }
+  // 2) Try to extract the first JSON object block
+  const first = raw.indexOf("{");
+  const last = raw.lastIndexOf("}");
+  if (first >= 0 && last > first) {
+    const candidate = raw.slice(first, last + 1);
+    return JSON.parse(candidate);
+  }
+  throw new Error("Planner returned non-JSON content");
+}
+
 function getAiProviderBase(): string {
   return (process.env.AI_PROVIDER_BASE || "https://ai.sumopod.com").replace(/\/$/, "");
 }
@@ -73,7 +91,7 @@ export async function planWithProvider(opts: {
 }): Promise<PlannerResult> {
   const { content, model } = await callAiProvider(opts.system, opts.userText);
 
-  const parsed = JSON.parse(content);
+  const parsed = parseJsonLenient(content);
   const steps = Array.isArray(parsed?.steps) ? parsed.steps : [];
   const expectedOutputs = Array.isArray(parsed?.expectedOutputs) ? parsed.expectedOutputs : [];
   const notes = String(parsed?.notes || "");

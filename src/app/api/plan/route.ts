@@ -73,6 +73,9 @@ function inferSupportedTaskId(label: string, userText: string) {
   ) {
     return "firecrawl_scrape";
   }
+  if (/report|dashboard|summary|analy(s|z)e|insight|brief/.test(l) || /report|dashboard|summary|ringkas|analisis/.test(t)) {
+    return "openai_chat";
+  }
   if (
     /translate|translation|terjemah|spanish|indonesian|english|japanese|korean|chinese/.test(l) ||
     /translate|terjemah|spanish|indonesian|english|japanese|korean|chinese/.test(t)
@@ -142,11 +145,13 @@ function fallbackPlan(text: string): PlanStep[] {
   const wantsScrape = /http|link|url|scrap|crawl|website/.test(t);
   const wantsTranslate = /translate|terjemah|indo|indonesia|english|japanese|korean|chinese/.test(t);
   const wantsTts = /audio|tts|voice|speech|mp3|wav|suara/.test(t);
+  const wantsReport = /report|dashboard|summary|ringkas|analisis|analysis/.test(t);
 
   const steps: PlanStep[] = [];
   if (wantsScrape) steps.push({ taskId: "firecrawl_scrape", label: "Web Scrape (Firecrawl)", tool: "firecrawl/scrape" });
   if (wantsTranslate) steps.push({ taskId: "translate_deepl", label: "Translate (DeepL)", tool: "deepl/translate" });
   if (wantsTts) steps.push({ taskId: "openai_tts", label: "Text-to-Speech (OpenAI)", tool: "openai/tts" });
+  if (wantsReport) steps.push({ taskId: "openai_chat", label: "LLM Chat (OpenAI)", tool: "openai/chat" });
   if (steps.length === 0) steps.push({ taskId: "openai_chat", label: "LLM Chat (OpenAI)", tool: "openai/chat" });
   return steps;
 }
@@ -239,6 +244,7 @@ export async function POST(req: Request) {
     "- If the user wants web scraping/research but does NOT provide a URL, prefer: firecrawl_search -> firecrawl_scrape.",
     "- If the user mentions translation, include translate_deepl.",
     "- If the user mentions audio/tts, include openai_tts.",
+    "- If the user asks for a report/dashboard/summary, include openai_chat as the final step.",
     "- Otherwise, fallback to openai_chat.",
   ].join("\n");
 
