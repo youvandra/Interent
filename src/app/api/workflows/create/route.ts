@@ -4,6 +4,10 @@ import { getAppUrl, getLocusApiBase, getLocusApiKey } from "@/lib/locus";
 import { randomToken, sha256Hex } from "@/lib/auth";
 import { executeJobNow } from "@/lib/execute-job";
 
+// Free-run (promo) executes wrapped API calls server-side, which can take time.
+// Increase the serverless timeout budget where supported (e.g. Vercel).
+export const maxDuration = 300;
+
 type Body = {
   buyerId?: string;
   prompt?: string;
@@ -85,8 +89,15 @@ export async function POST(req: Request) {
   // Free run: skip checkout and execute immediately (Interent still pays wrapped APIs using its own Locus key).
   if (freeRun) {
     const paidAt = new Date().toISOString();
-    void executeJobNow(jobId, { txHash: null, paidAt });
-    return NextResponse.json({ jobId, jobToken, ...(promoOk ? { promoApplied: true } : {}), freeRun: true });
+    // IMPORTANT: do not "fire-and-forget" in serverless; the process may be frozen/killed,
+    // leaving the job stuck in RUNNING. We execute inline.
+    await executeJobNow(jobId, { txHash: null, paidAt });
+    return NextResponse.json({
+      jobId,
+      jobToken,
+      ...(promoOk ? { promoApplied: true } : {}),
+      freeRun: true,
+    });
   }
 
   const appUrl = getAppUrl();
