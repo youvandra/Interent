@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getAppUrl, getLocusApiBase, getLocusApiKey } from "@/lib/locus";
 import { randomToken, sha256Hex } from "@/lib/auth";
-import { executeJobNow } from "@/lib/execute-job";
 
 type Body = {
   buyerId?: string;
@@ -80,14 +79,6 @@ export async function POST(req: Request) {
   const jobId = jobRow?.id;
   if (!jobId) return NextResponse.json({ error: "Failed to create job" }, { status: 500 });
 
-  // Promo: free checkout (skip Locus session) and run immediately.
-  if (promoOk) {
-    const paidAt = new Date().toISOString();
-    // Fire-and-forget execution; job page will poll status/result.
-    void executeJobNow(jobId, { txHash: null, paidAt });
-    return NextResponse.json({ jobId, jobToken, promoApplied: true });
-  }
-
   const appUrl = getAppUrl();
   if (!/^https:\/\//i.test(appUrl)) {
     return NextResponse.json(
@@ -104,14 +95,18 @@ export async function POST(req: Request) {
   const locusKey = getLocusApiKey();
   const webhookUrl = `${appUrl}/api/webhooks/locus`;
 
+  // Promo: still create a Locus checkout session, but with a 0 amount.
+  // This ensures the embedded checkout UI still appears and the flow is consistent.
+  const chargeAmount = promoOk ? "0.000000" : total.toFixed(6);
+
   const payload = {
     // keep USDC precision (6 decimals) so UI total matches charged amount
-    amount: total.toFixed(6),
+    amount: chargeAmount,
     description: `Interent workflow (${steps.length} steps)`,
     successUrl: `${appUrl}/jobs/${jobId}`,
     cancelUrl: `${appUrl}/input?text=${encodeURIComponent(prompt)}`,
     webhookUrl,
-    metadata: { jobId, buyerId, kind: "workflow" },
+    metadata: { jobId, buyerId, kind: "workflow", ...(promoOk ? { promoApplied: true } : {}) },
   };
 
   const resp = await fetch(`${locusBase}/checkout/sessions`, {

@@ -238,14 +238,6 @@ export function InputClient() {
       const json = await resp.json().catch(() => null);
       if (!resp.ok) throw new Error(json?.error || "Failed to create checkout");
 
-      // Promo flow: no checkout session, redirect directly to job page.
-      if (json?.promoApplied) {
-        window.localStorage.setItem(`interent_job_token_${json.jobId}`, json.jobToken);
-        saveJobContext(json.jobId, "live");
-        window.location.href = `/jobs/${json.jobId}`;
-        return;
-      }
-
       const checkoutUrl = json?.checkoutUrl ?? null;
       const sessionId =
         json?.sessionId ??
