@@ -6,6 +6,65 @@ function extractFirstUrl(text: string) {
   return m?.[0] ?? null;
 }
 
+function collectUrlsFromAny(x: any, out = new Set<string>()): string[] {
+  if (!x) return Array.from(out);
+  if (typeof x === "string") {
+    const matches = x.match(/https?:\/\/[^\s"')\]]+/gi) || [];
+    for (const u of matches) out.add(u);
+    return Array.from(out);
+  }
+  if (Array.isArray(x)) {
+    for (const v of x) collectUrlsFromAny(v, out);
+    return Array.from(out);
+  }
+  if (typeof x === "object") {
+    for (const v of Object.values(x)) collectUrlsFromAny(v, out);
+    return Array.from(out);
+  }
+  return Array.from(out);
+}
+
+function extractStringByKeysDeep(x: any, keys: string[]): string | null {
+  if (!x) return null;
+  if (typeof x === "string") return null;
+  if (Array.isArray(x)) {
+    for (const v of x) {
+      const found = extractStringByKeysDeep(v, keys);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (typeof x === "object") {
+    for (const k of keys) {
+      if (typeof (x as any)[k] === "string") return (x as any)[k];
+    }
+    for (const v of Object.values(x)) {
+      const found = extractStringByKeysDeep(v, keys);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+async function guessUrlForPrompt(prompt: string): Promise<string | null> {
+  // Best-effort: if the user did not provide a URL, do a quick web search via wrapped APIs,
+  // then scrape the top result.
+  try {
+    const search = await callWrappedApi("firecrawl", "search", { query: prompt });
+    const urls = collectUrlsFromAny(search);
+    return urls[0] ?? null;
+  } catch {
+    // fallthrough
+  }
+  try {
+    const search = await callWrappedApi("exa", "search", { query: prompt, numResults: 5 });
+    const urls = collectUrlsFromAny(search);
+    return urls[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function inferDeepLTargetLang(text: string): string {
   const t = text.toLowerCase();
   if (/(spanish|español|espanol)\b/.test(t)) return "ES";
@@ -24,6 +83,7 @@ function extractTextFromResult(provider: string, endpoint: string, data: any): s
     return (
       (typeof data?.markdown === "string" && data.markdown) ||
       (typeof data?.content === "string" && data.content) ||
+      extractStringByKeysDeep(data, ["markdown", "content", "text"]) ||
       null
     );
   }
@@ -55,6 +115,13 @@ function extractTextFromResult(provider: string, endpoint: string, data: any): s
     if (typeof data?.[k] === "string") return data[k];
   }
 
+  return extractStringByKeysDeep(data, ["text", "content", "markdown", "result", "output"]);
+}
+
+function inferDeepLSourceLang(prompt: string, targetLang: string): string | null {
+  // Simple heuristic: if the prompt looks like English and we're translating away from EN, set source_lang=EN.
+  const looksEnglish = /[a-z]/i.test(prompt) && !/[^\x00-\x7F]/.test(prompt);
+  if (looksEnglish && targetLang !== "EN") return "EN";
   return null;
 }
 
@@ -120,8 +187,9 @@ export async function executeJobNow(jobId: string, opts?: { txHash?: string | nu
       const outputs: any[] = [];
 
       let lastText: string | null = null;
-      const url = extractFirstUrl(wfPrompt);
+      let url = extractFirstUrl(wfPrompt);
       const deeplTarget = inferDeepLTargetLang(wfPrompt);
+      const deeplSource = inferDeepLSourceLang(wfPrompt, deeplTarget);
 
       for (const step of steps) {
         const meta = stepMap.get(step.taskId);
@@ -133,16 +201,29 @@ export async function executeJobNow(jobId: string, opts?: { txHash?: string | nu
         let body: any = {};
 
         if (endpoint === "scrape") {
-          if (!url) throw new Error("No URL found in prompt for scrape");
+          if (!url) url = await guessUrlForPrompt(wfPrompt);
+          if (!url) throw new Error("No URL found (and could not auto-find one) for scrape");
           body = { url, formats: ["markdown"] };
         } else if (endpoint === "search") {
           body = { query: wfPrompt };
         } else if (endpoint === "extract") {
-          if (!url) throw new Error("No URL found in prompt for extract");
+          if (!url) url = await guessUrlForPrompt(wfPrompt);
+          if (!url) throw new Error("No URL found (and could not auto-find one) for extract");
           body = { urls: [url] };
         } else if (endpoint === "translate") {
-          if (!lastText) throw new Error("Missing text for translation");
-          body = { text: [lastText], target_lang: deeplTarget };
+          // If we don't have text yet, fall back to extracting text from the last step,
+          // and if that still fails, use the original prompt (best-effort, not rigid).
+          if (!lastText && outputs.length) {
+            const prev = outputs[outputs.length - 1]?.data;
+            const prevText = extractTextFromResult("unknown", "unknown", prev);
+            if (prevText) lastText = prevText;
+          }
+          if (!lastText) lastText = wfPrompt;
+          body = {
+            text: [lastText],
+            target_lang: deeplTarget,
+            ...(deeplSource ? { source_lang: deeplSource } : {}),
+          };
         } else if (endpoint === "chat") {
           const inputText = lastText ?? wfPrompt;
           if (provider === "openai") {
@@ -209,4 +290,3 @@ export async function executeJobNow(jobId: string, opts?: { txHash?: string | nu
       .eq("id", job.id);
   }
 }
-

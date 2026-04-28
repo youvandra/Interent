@@ -236,6 +236,7 @@ export async function POST(req: Request) {
     "Rules:",
     "- Prefer the shortest chain that satisfies the request.",
     "- If the user mentions a URL/link and extracting content, include firecrawl_scrape.",
+    "- If the user wants web scraping/research but does NOT provide a URL, prefer: firecrawl_search -> firecrawl_scrape.",
     "- If the user mentions translation, include translate_deepl.",
     "- If the user mentions audio/tts, include openai_tts.",
     "- Otherwise, fallback to openai_chat.",
