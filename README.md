@@ -38,7 +38,7 @@ src/
     jobs/[id]/             # Job viewer (input/toolchain + output)
     provider/              # Provider catalog UI (reads from tasks table)
     api/
-      plan/                # Toolchain planner (OpenRouter + DB normalization)
+      plan/                # Toolchain planner (AI provider, OpenAI-compatible) + DB normalization
       tasks/               # List supported tasks/tools from DB
       workflows/create/    # Create workflow checkout session (Locus)
       workflows/testpay/   # Create mock DONE job (no payment, no execution)
@@ -101,12 +101,24 @@ Open:
 ### Plan (Suggested flow + Expected output)
 
 `POST /api/plan`
-- Uses OpenRouter for planning
+- Uses an OpenAI-compatible AI provider (configurable via env)
 - Normalizes steps against the `tasks` table (canonical labels + pricing)
 - Returns pricing fields:
   - `subtotalToolsUsdc`
   - `serviceFeeUsdc` (5% of subtotal)
   - `totalPriceUsdc`
+
+### Configure the planner AI provider (e.g. Sumopod)
+
+The planner (tool detection) calls an OpenAI-compatible `POST /v1/chat/completions` endpoint.
+
+Set env vars:
+
+```bash
+AI_PROVIDER_BASE=https://ai.sumopod.com
+AI_PROVIDER_API_KEY=...
+AI_PROVIDER_MODEL=gpt-5-nano
+```
 
 ### Pay & execute
 

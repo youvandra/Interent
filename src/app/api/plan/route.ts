@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getOpenRouterApiKey, OPENROUTER_BASE } from "@/lib/openrouter";
 import { supabaseServer } from "@/lib/supabase/server";
+import { planWithProvider } from "@/lib/planner";
 
 type Body = { text?: string };
 
@@ -245,34 +245,10 @@ export async function POST(req: Request) {
   let expectedOutputs: OutputOption[] | null = null;
   let notes = "";
   try {
-    const key = getOpenRouterApiKey();
-    const resp = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-        // recommended metadata for OpenRouter
-        "HTTP-Referer": "https://interent.vercel.app",
-        "X-Title": "Interent",
-      },
-      body: JSON.stringify({
-        model: "nvidia/nemotron-3-super-120b-a12b:free",
-        temperature: 0.2,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: text },
-        ],
-        response_format: { type: "json_object" },
-      }),
-    });
-
-    const json = (await resp.json().catch(() => null)) as any;
-    const content = json?.choices?.[0]?.message?.content;
-    if (!resp.ok || !content) throw new Error("OpenRouter response missing content");
-    const parsed = JSON.parse(content);
-    steps = Array.isArray(parsed?.steps) ? parsed.steps : null;
-    expectedOutputs = Array.isArray(parsed?.expectedOutputs) ? parsed.expectedOutputs : null;
-    notes = String(parsed?.notes || "");
+    const planned = await planWithProvider({ system, userText: text });
+    steps = Array.isArray(planned.steps) ? planned.steps : null;
+    expectedOutputs = Array.isArray(planned.expectedOutputs) ? planned.expectedOutputs : null;
+    notes = planned.notes || "";
   } catch {
     steps = fallbackPlan(text);
     expectedOutputs = fallbackOutputs(text);
