@@ -30,6 +30,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
   const [polling, setPolling] = useState(false);
   const pollRef = useRef<number | null>(null);
   const [jobContext, setJobContext] = useState<any | null>(null);
+  const [showRaw, setShowRaw] = useState(false);
 
   useEffect(() => {
     const fromStorage = window.localStorage.getItem(storageKey);
@@ -113,6 +114,131 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
     const next = v.trim();
     setJobToken(next);
     window.localStorage.setItem(storageKey, next);
+  }
+
+  function extractTextFromAny(x: any): string | null {
+    if (!x) return null;
+    if (typeof x === "string") return x;
+    if (typeof x?.finalText === "string") return x.finalText;
+
+    // Common shapes
+    const deepl = x?.translations?.[0]?.text ?? x?.text;
+    if (typeof deepl === "string") return deepl;
+
+    const openai = x?.choices?.[0]?.message?.content ?? x?.choices?.[0]?.text;
+    if (typeof openai === "string") return openai;
+
+    const firecrawl = x?.markdown ?? x?.content;
+    if (typeof firecrawl === "string") return firecrawl;
+
+    const gemini =
+      x?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text).filter(Boolean).join("\n") ??
+      x?.output_text;
+    if (typeof gemini === "string") return gemini;
+
+    return null;
+  }
+
+  function renderHumanOutput(r: any) {
+    if (!r) return null;
+    const metaProvider = r?.provider;
+    const metaEndpoint = r?.endpoint;
+    const txHash = r?.txHash;
+    const data = r?.data ?? r;
+
+    // Workflow
+    if (data?.kind === "workflow") {
+      const finalText = extractTextFromAny(data);
+      const steps = Array.isArray(data?.steps) ? data.steps : [];
+
+      return (
+        <div className="space-y-4">
+          {(metaProvider || metaEndpoint || txHash) && (
+            <div className="text-xs text-[--color-muted]">
+              {metaProvider && metaEndpoint ? (
+                <div>
+                  Provider: <span className="font-mono text-[--color-text]">{metaProvider}/{metaEndpoint}</span>
+                </div>
+              ) : null}
+              {txHash ? (
+                <div>
+                  Tx: <span className="font-mono text-[--color-text]">{txHash}</span>
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          <div>
+            <div className="text-sm font-medium text-[--color-text]">Final output</div>
+            <div className="mt-2 whitespace-pre-wrap rounded-lg border border-[--color-border] bg-[--color-surface] p-3 text-sm text-[--color-text]">
+              {finalText || "—"}
+            </div>
+          </div>
+
+          {steps.length ? (
+            <div>
+              <div className="text-sm font-medium text-[--color-text]">Steps</div>
+              <div className="mt-2 space-y-2">
+                {steps.map((s: any, idx: number) => {
+                  const stepText = extractTextFromAny(s?.data);
+                  const title = s?.taskId ?? `${s?.provider ?? "provider"}/${s?.endpoint ?? "endpoint"}`;
+                  return (
+                    <div key={`${title}-${idx}`} className="rounded-lg border border-[--color-border] bg-white p-3">
+                      <div className="text-xs font-semibold tracking-widest text-[--color-muted]">
+                        STEP {idx + 1}
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-[--color-text]">
+                        {title}
+                      </div>
+                      {stepText ? (
+                        <div className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm text-[--color-text]">
+                          {stepText}
+                        </div>
+                      ) : (
+                        <div className="mt-2 text-sm text-[--color-muted]">No readable text output.</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      );
+    }
+
+    // Single-step tasks (translate/ocr/chat/etc)
+    const text = extractTextFromAny(data);
+    if (typeof text === "string" && text.trim()) {
+      return (
+        <div>
+          {(metaProvider || metaEndpoint || txHash) && (
+            <div className="mb-2 text-xs text-[--color-muted]">
+              {metaProvider && metaEndpoint ? (
+                <div>
+                  Provider: <span className="font-mono text-[--color-text]">{metaProvider}/{metaEndpoint}</span>
+                </div>
+              ) : null}
+              {txHash ? (
+                <div>
+                  Tx: <span className="font-mono text-[--color-text]">{txHash}</span>
+                </div>
+              ) : null}
+            </div>
+          )}
+          <div className="whitespace-pre-wrap rounded-lg border border-[--color-border] bg-[--color-surface] p-3 text-sm text-[--color-text]">
+            {text}
+          </div>
+        </div>
+      );
+    }
+
+    // Fallback: unknown shape
+    return (
+      <div className="text-sm text-[--color-muted]">
+        Output is not directly renderable. Use “Show raw JSON”.
+      </div>
+    );
   }
 
   return (
@@ -280,10 +406,26 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
 
             {result && (
               <div className="rounded-xl border border-[--color-border] bg-white p-4">
-                <div className="text-sm font-medium">Output</div>
-                <pre className="mt-2 max-h-[420px] overflow-auto rounded-lg bg-[--color-surface] p-3 text-xs text-[--color-text]">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-medium">Output</div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowRaw((v) => !v)}
+                  >
+                    {showRaw ? "Hide raw JSON" : "Show raw JSON"}
+                  </Button>
+                </div>
+
+                <div className="mt-3">
+                  {renderHumanOutput(result)}
+                </div>
+
+                {showRaw ? (
+                  <pre className="mt-4 max-h-[420px] overflow-auto rounded-lg bg-[--color-surface] p-3 text-xs text-[--color-text]">
 {JSON.stringify(result, null, 2)}
-                </pre>
+                  </pre>
+                ) : null}
               </div>
             )}
 
