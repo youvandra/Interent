@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getAppUrl, getLocusApiBase, getLocusApiKey } from "@/lib/locus";
 import { randomToken, sha256Hex } from "@/lib/auth";
+import { executeJobNow } from "@/lib/execute-job";
 
 type Body = {
   buyerId?: string;
@@ -27,7 +28,8 @@ export async function POST(req: Request) {
     promoCode.trim().toUpperCase() === expectedPromo.toUpperCase();
 
   const total = Number(totalPriceUsdc ?? "0");
-  if (!promoOk && (!Number.isFinite(total) || total <= 0)) {
+  const freeRun = promoOk || (Number.isFinite(total) && total <= 0);
+  if (!freeRun && (!Number.isFinite(total) || total <= 0)) {
     return NextResponse.json({ error: "totalPriceUsdc required" }, { status: 400 });
   }
 
@@ -69,6 +71,7 @@ export async function POST(req: Request) {
         steps,
         expectedOutputs: Array.isArray(expectedOutputs) ? expectedOutputs : [],
         ...(promoOk ? { promoApplied: true } : {}),
+        ...(freeRun ? { freeRun: true } : {}),
       },
       job_token_hash: jobTokenHash,
     })
@@ -78,6 +81,13 @@ export async function POST(req: Request) {
   if (jobErr) return NextResponse.json({ error: jobErr.message }, { status: 500 });
   const jobId = jobRow?.id;
   if (!jobId) return NextResponse.json({ error: "Failed to create job" }, { status: 500 });
+
+  // Free run: skip checkout and execute immediately (Interent still pays wrapped APIs using its own Locus key).
+  if (freeRun) {
+    const paidAt = new Date().toISOString();
+    void executeJobNow(jobId, { txHash: null, paidAt });
+    return NextResponse.json({ jobId, jobToken, ...(promoOk ? { promoApplied: true } : {}), freeRun: true });
+  }
 
   const appUrl = getAppUrl();
   if (!/^https:\/\//i.test(appUrl)) {
@@ -95,18 +105,14 @@ export async function POST(req: Request) {
   const locusKey = getLocusApiKey();
   const webhookUrl = `${appUrl}/api/webhooks/locus`;
 
-  // Promo: still create a Locus checkout session, but with a 0 amount.
-  // This ensures the embedded checkout UI still appears and the flow is consistent.
-  const chargeAmount = promoOk ? "0.000000" : total.toFixed(6);
-
   const payload = {
     // keep USDC precision (6 decimals) so UI total matches charged amount
-    amount: chargeAmount,
+    amount: total.toFixed(6),
     description: `Interent workflow (${steps.length} steps)`,
     successUrl: `${appUrl}/jobs/${jobId}`,
     cancelUrl: `${appUrl}/input?text=${encodeURIComponent(prompt)}`,
     webhookUrl,
-    metadata: { jobId, buyerId, kind: "workflow", ...(promoOk ? { promoApplied: true } : {}) },
+    metadata: { jobId, buyerId, kind: "workflow" },
   };
 
   const resp = await fetch(`${locusBase}/checkout/sessions`, {

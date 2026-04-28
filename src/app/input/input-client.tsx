@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SquareSpinner } from "@/components/ui/square-spinner";
-import { ArrowRight, Check, FlaskConical } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 
 type PlannedStep = {
   taskId: string | null;
@@ -109,7 +109,6 @@ export function InputClient() {
     sessionId: string;
     checkoutUrl?: string | null;
   } | null>(null);
-  const [testPaying, setTestPaying] = useState(false);
 
   // Regenerate: load prior job context from localStorage
   useEffect(() => {
@@ -238,6 +237,14 @@ export function InputClient() {
       const json = await resp.json().catch(() => null);
       if (!resp.ok) throw new Error(json?.error || "Failed to create checkout");
 
+      // Free run (promo / $0 total): Interent runs immediately without showing checkout.
+      if (json?.freeRun || json?.promoApplied) {
+        window.localStorage.setItem(`interent_job_token_${json.jobId}`, json.jobToken);
+        saveJobContext(json.jobId, "live");
+        window.location.href = `/jobs/${json.jobId}`;
+        return;
+      }
+
       const checkoutUrl = json?.checkoutUrl ?? null;
       const sessionId =
         json?.sessionId ??
@@ -289,45 +296,6 @@ export function InputClient() {
       window.clearTimeout(t);
     };
   }, [promoCode]);
-
-  async function testPay() {
-    if (!plan) return;
-    setError(null);
-    setTestPaying(true);
-    try {
-      const resp = await fetch("/api/workflows/testpay", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          buyerId,
-          prompt,
-          steps: plan.steps.map((s) => ({
-            taskId: s.taskId,
-            label: s.label,
-            priceUsdc: s.priceUsdc,
-            missing: s.missing,
-          })),
-          expectedOutputs: selectedOutputs,
-          pricing: {
-            subtotalToolsUsdc: plan.subtotalToolsUsdc,
-            serviceFeeUsdc: plan.serviceFeeUsdc,
-            serviceFeeRate: plan.serviceFeeRate,
-            totalPriceUsdc: plan.totalPriceUsdc,
-          },
-        }),
-      });
-      const json = await resp.json().catch(() => null);
-      if (!resp.ok) throw new Error(json?.error || "Failed to create test job");
-
-      window.localStorage.setItem(`interent_job_token_${json.jobId}`, json.jobToken);
-      saveJobContext(json.jobId, "test");
-      window.location.href = `/jobs/${json.jobId}`;
-    } catch (e: any) {
-      setError(String(e?.message || e));
-    } finally {
-      setTestPaying(false);
-    }
-  }
 
   function recomputeTotals(nextSteps: PlannedStep[]) {
     const subtotalMicro = nextSteps.reduce(
@@ -575,7 +543,7 @@ export function InputClient() {
                           ? "Checking…"
                           : promoCode.trim()
                             ? promoValid
-                              ? "Promo applied — free checkout."
+                              ? "Promo applied — run for free."
                               : "Invalid code."
                             : "Optional."}
                       </div>
@@ -627,20 +595,20 @@ export function InputClient() {
                 </div>
 
                 {!checkout && (
-                  <div className="flex gap-2">
+                  <div>
                     <Button
-                      className="flex-[4]"
+                      className="w-full"
                       onClick={createWorkflowCheckout}
-                      disabled={
-                        planning ||
-                        creatingCheckout ||
-                        testPaying ||
-                        plan.steps.some((s) => s.missing)
-                      }
+                      disabled={planning || creatingCheckout || plan.steps.some((s) => s.missing)}
                     >
                       {creatingCheckout ? (
                         <>
-                          <SquareSpinner /> Loading checkout…
+                          <SquareSpinner /> Loading…
+                        </>
+                      ) : Number(plan.totalPriceUsdc) === 0 || promoValid ? (
+                        <>
+                          <ArrowRight className="h-4 w-4" />
+                          Run workflow
                         </>
                       ) : (
                         <>
@@ -651,23 +619,6 @@ export function InputClient() {
                             className="h-4 w-4"
                           />
                           Pay with Locus
-                        </>
-                      )}
-                    </Button>
-
-                    <Button
-                      className="flex-[1]"
-                      variant="secondary"
-                      onClick={testPay}
-                      disabled={planning || creatingCheckout || testPaying}
-                      aria-label="Test Pay (mock result)"
-                    >
-                      {testPaying ? (
-                        <SquareSpinner />
-                      ) : (
-                        <>
-                          <FlaskConical className="h-4 w-4" />
-                          Test Pay
                         </>
                       )}
                     </Button>
