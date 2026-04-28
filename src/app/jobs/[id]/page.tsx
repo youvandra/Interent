@@ -175,7 +175,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
 
           <div>
             <div className="text-sm font-medium text-[--color-text]">Final output</div>
-            <div className="mt-2 whitespace-pre-wrap rounded-lg border border-[--color-border] bg-[--color-surface] p-3 text-sm text-[--color-text]">
+            <div className="mt-2 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-lg border border-[--color-border] bg-[--color-surface] p-3 text-sm text-[--color-text]">
               {prettyText || finalText || "—"}
             </div>
           </div>
@@ -196,7 +196,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
                         {title}
                       </div>
                       {stepText ? (
-                        <div className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm text-[--color-text]">
+                        <div className="mt-2 line-clamp-4 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm text-[--color-text]">
                           {stepText}
                         </div>
                       ) : (
@@ -427,7 +427,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
                 </div>
 
                 {showRaw ? (
-                  <pre className="mt-4 max-h-[420px] overflow-auto rounded-lg bg-[--color-surface] p-3 text-xs text-[--color-text]">
+                  <pre className="mt-4 max-h-[420px] max-w-full overflow-auto whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-lg bg-[--color-surface] p-3 text-xs text-[--color-text]">
 {JSON.stringify(result, null, 2)}
                   </pre>
                 ) : null}
